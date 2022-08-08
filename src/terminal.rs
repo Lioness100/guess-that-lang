@@ -8,8 +8,6 @@ use std::{
     {env, thread},
 };
 
-use crate::path::get_absolute_path;
-
 use ansi_term::{
     ANSIGenericStrings,
     Color::{self, Fixed, RGB},
@@ -30,7 +28,10 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::game::{GameResult, PROMPT};
+use crate::{
+    game::{GameResult, PROMPT},
+    path::get_absolute_path,
+};
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
