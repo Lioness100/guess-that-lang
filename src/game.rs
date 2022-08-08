@@ -157,7 +157,7 @@ impl Game {
 
                     // Give the user 1.5 seconds to register the result.
                     thread::sleep(Duration::from_millis(1500));
-                    return result;
+                    result
                 }
             });
 
