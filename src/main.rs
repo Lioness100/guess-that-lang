@@ -4,11 +4,13 @@ use tokio::fs;
 use clap::Parser;
 use game::GameResult;
 
+pub mod path;
 pub mod game;
 pub mod github;
 pub mod terminal;
 
 use crate::{
+    path::get_absolute_path,
     game::Game,
     github::{apply_token, test_token_structure},
 };
@@ -33,10 +35,13 @@ async fn main() -> anyhow::Result<()> {
 
     if let Some(token) = args.token {
         apply_token(&token, false).await?;
-        fs::write(CONFIG_PATH, token)
+        fs::write(
+            get_absolute_path(CONFIG_PATH), token)
             .await
             .context("Failed to write token to config file")?;
-    } else if let Ok(token) = fs::read_to_string(CONFIG_PATH).await {
+    } else if let Ok(token) = fs::read_to_string(
+        get_absolute_path(CONFIG_PATH),
+    ).await {
         apply_token(&token, true).await?;
     }
 
