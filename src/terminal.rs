@@ -8,6 +8,8 @@ use std::{
     {env, thread},
 };
 
+use crate::path::get_absolute_path;
+
 use ansi_term::{
     ANSIGenericStrings,
     Color::{self, Fixed, RGB},
@@ -45,10 +47,14 @@ impl Default for Terminal {
         #[cfg(windows)]
         let _ = ansi_term::enable_ansi_support();
 
-        let themes: ThemeSet = dumps::from_dump_file(THEME_DUMP_PATH)
+        let themes: ThemeSet = dumps::from_dump_file(
+            get_absolute_path(THEME_DUMP_PATH),
+        )
             .unwrap_or_else(|_| panic!("Failed to load {THEME_DUMP_PATH}"));
 
-        let syntaxes: SyntaxSet = dumps::from_uncompressed_dump_file(SYNTAX_DUMP_PATH)
+        let syntaxes: SyntaxSet = dumps::from_uncompressed_dump_file(
+            get_absolute_path(SYNTAX_DUMP_PATH),
+        )
             .unwrap_or_else(|_| panic!("Failed to load {SYNTAX_DUMP_PATH}"));
 
         let mut stdout = stdout();
