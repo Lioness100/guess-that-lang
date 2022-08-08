@@ -29,6 +29,9 @@ here to make
 one](https://github.com/settings/tokens/new?description=Guess%20That%20Lang) (no
 scopes are required).
 
+> ⚠️ Resizing the terminal window while playing will cause the game to go a bit
+> wonky.
+
 ```sh
 # Tokens will be stored in .guess-that-lang and thus are only need to be input once.
 guess-that-lang --token "XXX"
