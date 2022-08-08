@@ -14,7 +14,7 @@ keywords = ["cli", "game", "cli-game", "fun"]
 ansi_colours = "1.1.1"
 ansi_term = "0.12.1"
 anyhow = "1.0.59"
-clap = { version = "3.2.16", features = ["derive"] }
+clap =  "3.2.16"
 console = "0.15.1"
 crossterm = "0.24.0"
 dark-light = "0.2.2"

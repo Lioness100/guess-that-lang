@@ -26,12 +26,17 @@ pub fn test_token_structure(token: &str) -> Result<String, String> {
     }
 }
 
+#[derive(Deserialize)]
+pub struct RateLimit;
+
 /// Queries the Github ratelimit API using the provided token to make sure it's
 /// valid. The ratelimit data itself isn't used.
 pub async fn apply_token(token: &str, from_file: bool) -> anyhow::Result<()> {
     // Register the token as authentication with [`octocrab::Octocrab`].
-    octocrab::initialise(OctocrabBuilder::new().personal_token(token.to_string()))?;
-    let ratelimit = octocrab::instance().ratelimit().get().await;
+    let instance = octocrab::initialise(OctocrabBuilder::new().personal_token(token.to_string()))?;
+    let ratelimit = instance
+        .get::<RateLimit, &str, ()>("rate_limit", None)
+        .await;
 
     if ratelimit.is_err() {
         bail!(
