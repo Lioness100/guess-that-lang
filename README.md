@@ -17,7 +17,7 @@ Survey](https://survey.stackoverflow.co/2022/#most-popular-technologies-language
 Install [Rust](https://www.rust-lang.org/tools/install) using the recommended rustup installation method and then run:
 
 ```sh
-cargo install guess-that-lang
+cargo +nightly install guess-that-lang
 ```
 
 ## Usage
