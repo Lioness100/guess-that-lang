@@ -14,14 +14,12 @@ keywords = ["cli", "game", "cli-game", "fun"]
 ansi_colours = "1.1.1"
 ansi_term = "0.12.1"
 anyhow = "1.0.59"
-clap = { version = "3.2.16", features = ["derive"] }
+argh = "0.1.8"
 console = "0.15.1"
 crossterm = "0.24.0"
 dark-light = "0.2.2"
-dialoguer = "0.10.2"
-octocrab = "0.16.0"
 rand = "0.8.5"
 regex = "1.6.0"
 serde = { version = "1.0.142", features = ["derive"] }
 syntect = "5.0.0"
-tokio = { version = "1.20.1", features = ["full"] }
+ureq = { version = "2.5.0", features = ["json"] }

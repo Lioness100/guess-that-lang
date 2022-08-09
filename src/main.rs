@@ -1,48 +1,33 @@
-use anyhow::Context;
-use tokio::fs;
-
-use clap::Parser;
+use argh::FromArgs;
 use game::GameResult;
 
 pub mod game;
 pub mod github;
+pub mod path;
 pub mod terminal;
 
-use crate::{
-    game::Game,
-    github::{apply_token, test_token_structure},
-};
+use crate::{game::Game, github::Github};
 
 pub const CONFIG_PATH: &str = ".guess-that-lang";
 
-/// Struct used to resolve CLI arguments.
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
+#[derive(FromArgs)]
+/// CLI game to see how fast you can guess the language of a code block!
 struct Args {
-    #[clap(
-        long,
-        help = "Your personal access token, which will be stored in the .guess-that-lang file and thus will only need to be input once. This will allow the game to make more Github requests before getting ratelimited.\nNo scopes are required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang",
-        value_parser = test_token_structure
-    )]
+    /// your personal access token, which will be stored in the .guess-that-lang file and thus will only need to be input once. This will allow the game to make more Github requests before getting ratelimited.
+    /// No scopes are required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang
+    #[argh(short = 't', option)]
     token: Option<String>,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+fn main() -> anyhow::Result<()> {
+    let args: Args = argh::from_env();
 
-    if let Some(token) = args.token {
-        apply_token(&token, false).await?;
-        fs::write(CONFIG_PATH, token)
-            .await
-            .context("Failed to write token to config file")?;
-    } else if let Ok(token) = fs::read_to_string(CONFIG_PATH).await {
-        apply_token(&token, true).await?;
-    }
+    let mut client = Github::default();
+    client.apply_token(args.token)?;
 
-    let mut game = Game::new().await?;
+    let mut game = Game::new(client);
     loop {
-        let result = game.start_new_round().await?;
+        let result = game.start_new_round()?;
         match result {
             GameResult::Continue => game.terminal.clear_screen(),
             GameResult::Exit => break,

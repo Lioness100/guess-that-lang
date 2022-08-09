@@ -13,7 +13,7 @@ use crossterm::{
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::{
-    github::{get_gists, GistData},
+    github::{GistData, Github},
     terminal::Terminal,
 };
 
@@ -62,6 +62,7 @@ pub enum GameResult {
 pub struct Game {
     pub points: u32,
     pub terminal: Terminal,
+    client: Github,
     gist_data: Vec<GistData>,
 }
 
@@ -80,12 +81,12 @@ impl Drop for Game {
 }
 
 impl Game {
-    /// Create new game, fetching the first round of gists.
-    pub async fn new() -> anyhow::Result<Self> {
+    /// Create new game.
+    pub fn new(client: Github) -> Self {
         let mut game: Self = Default::default();
-        game.gist_data = get_gists(&game.terminal.syntaxes).await?;
+        game.client = client;
 
-        Ok(game)
+        game
     }
 
     /// Get the language options for a round. This will choose 3 random unique
@@ -109,17 +110,13 @@ impl Game {
 
     /// Start a new round, which is called in the main function with a for loop.
     /// The loop will break if [`GameResult::Exit`] is returned.
-    pub async fn start_new_round(&mut self) -> anyhow::Result<GameResult> {
+    pub fn start_new_round(&mut self) -> anyhow::Result<GameResult> {
         if self.gist_data.is_empty() {
-            self.gist_data = get_gists(&self.terminal.syntaxes).await?;
+            self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
         }
 
         let gist = self.gist_data.pop().unwrap();
-        let code = octocrab::instance()
-            ._get(&gist.url, None::<&()>)
-            .await?
-            .text()
-            .await?;
+        let code = self.client.get_gist(&gist.url)?;
 
         let options = Self::get_options(&gist.language);
         self.terminal
