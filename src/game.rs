@@ -15,6 +15,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use crate::{
     github::{GistData, Github},
     terminal::Terminal,
+    Config,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -58,10 +59,10 @@ pub enum GameResult {
 }
 
 /// The all-encompassing game struct.
-#[derive(Default)]
 pub struct Game {
     pub points: u32,
     pub terminal: Terminal,
+    config: Config,
     client: Github,
     gist_data: Vec<GistData>,
 }
@@ -77,16 +78,37 @@ impl Drop for Game {
             "You scored {} points!",
             Color::Green.bold().paint(self.points.to_string())
         );
+
+        if self.points > self.config.high_score {
+            if self.config.high_score > 0 {
+                println!(
+                    "You beat your high score of {}!",
+                    Color::Green
+                        .bold()
+                        .paint(self.config.high_score.to_string())
+                );
+            }
+
+            let new_config = Config {
+                high_score: self.points,
+                token: self.config.token.clone(),
+            };
+
+            let _config = confy::store("guess-that-lang", new_config);
+        }
     }
 }
 
 impl Game {
     /// Create new game.
-    pub fn new(client: Github) -> Self {
-        let mut game = Game::default();
-        game.client = client;
-
-        game
+    pub fn new(config: Config, client: Github) -> Self {
+        Self {
+            points: 0,
+            terminal: Terminal::default(),
+            gist_data: Vec::new(),
+            client,
+            config,
+        }
     }
 
     /// Get the language options for a round. This will choose 3 random unique
@@ -119,8 +141,12 @@ impl Game {
         let code = self.client.get_gist(&gist.url)?;
 
         let options = Self::get_options(&gist.language);
-        self.terminal
-            .print_round_info(self.points, &options, Terminal::trim_code(&code));
+        self.terminal.print_round_info(
+            &self.config,
+            self.points,
+            &options,
+            Terminal::trim_code(&code),
+        );
 
         let available_points = Mutex::new(100.0);
         let (sender, receiver) = mpsc::channel();

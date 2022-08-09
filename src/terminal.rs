@@ -12,6 +12,7 @@ use ansi_term::{
     ANSIGenericStrings,
     Color::{self, Fixed, RGB},
 };
+use anyhow::Context;
 use crossterm::{
     cursor::{Hide, MoveTo, MoveToColumn, MoveUp, RestorePosition, SavePosition},
     event::{self, Event, KeyCode, KeyEvent},
@@ -28,7 +29,10 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::game::{GameResult, PROMPT};
+use crate::{
+    game::{GameResult, PROMPT},
+    Config,
+};
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
@@ -37,19 +41,16 @@ pub struct Terminal {
     is_truecolor: bool,
 }
 
-pub const THEME_DUMP_PATH: &str = "assets/dumps/themes.dump";
-pub const SYNTAX_DUMP_PATH: &str = "assets/dumps/syntaxes.dump";
-
 impl Default for Terminal {
     fn default() -> Self {
         #[cfg(windows)]
         let _ansi = ansi_term::enable_ansi_support();
 
-        let themes: ThemeSet = dumps::from_dump_file(THEME_DUMP_PATH)
-            .unwrap_or_else(|_| panic!("Failed to load {THEME_DUMP_PATH}"));
-
-        let syntaxes: SyntaxSet = dumps::from_uncompressed_dump_file(SYNTAX_DUMP_PATH)
-            .unwrap_or_else(|_| panic!("Failed to load {SYNTAX_DUMP_PATH}"));
+        let themes: ThemeSet = dumps::from_binary(include_bytes!("../assets/dumps/themes.dump"));
+        let syntaxes: SyntaxSet =
+            dumps::from_uncompressed_data(include_bytes!("../assets/dumps/syntaxes.dump"))
+                .context("Failed to load syntaxes")
+                .unwrap();
 
         let mut stdout = stdout();
 
@@ -137,6 +138,7 @@ impl Terminal {
     /// Print the base table and all elements inside, including the code in dot form.
     pub fn print_round_info<'a>(
         &self,
+        config: &Config,
         points: u32,
         options: &[&str],
         code_lines: impl Iterator<Item = (usize, &'a str)>,
@@ -144,7 +146,9 @@ impl Terminal {
         let pipe = Color::White.dimmed().paint("│");
 
         let points = format!(
-            "{padding}{pipe} {}{}\n{padding}{pipe} {}{}",
+            "{padding}{pipe} {}{}\n{padding}{pipe} {}{}\n{padding}{pipe} {}{}",
+            Color::White.bold().paint("High Score: "),
+            Color::Purple.paint(config.high_score.to_string()),
             Color::White.bold().paint("Total Points: "),
             Color::Cyan.paint(points.to_string()),
             Color::White.bold().paint("Available Points: "),
@@ -227,7 +231,7 @@ impl Terminal {
 
             // Move to the row index of the dotted code and replace it with the
             // real code.
-            queue!(stdout, SavePosition, MoveTo(9, idx as u16 + 4), Print(line)).unwrap();
+            queue!(stdout, SavePosition, MoveTo(9, idx as u16 + 5), Print(line)).unwrap();
 
             // `available_points` should not be decreased on the first line.
             if idx != 0 {
@@ -243,7 +247,7 @@ impl Terminal {
 
                 queue!(
                     stdout,
-                    MoveTo(27, 2),
+                    MoveTo(27, 3),
                     Print(format!(
                         "{} ",
                         new_color.paint(available_points.to_string())

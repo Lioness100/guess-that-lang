@@ -23,6 +23,7 @@
 
 use argh::FromArgs;
 use game::GameResult;
+use serde::{Deserialize, Serialize};
 
 pub mod game;
 pub mod github;
@@ -30,10 +31,8 @@ pub mod terminal;
 
 use crate::{game::Game, github::Github};
 
-pub const CONFIG_PATH: &str = ".guess-that-lang";
-
-#[derive(FromArgs)]
 /// CLI game to see how fast you can guess the language of a code block!
+#[derive(FromArgs)]
 struct Args {
     /// your personal access token, which will be stored in the .guess-that-lang file and thus will only need to be input once. This will allow the game to make more Github requests before getting ratelimited.
     /// No scopes are required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang
@@ -41,13 +40,20 @@ struct Args {
     token: Option<String>,
 }
 
+/// Values to be persisted in a .toml file.
+#[derive(Default, Serialize, Deserialize)]
+pub struct Config {
+    high_score: u32,
+    token: String,
+}
+
 fn main() -> anyhow::Result<()> {
     let args: Args = argh::from_env();
+    let mut config: Config = confy::load("guess-that-lang")?;
 
-    let mut client = Github::default();
-    client.apply_token(args.token)?;
+    let client = Github::new(&mut config, args.token)?;
+    let mut game = Game::new(config, client);
 
-    let mut game = Game::new(client);
     loop {
         let result = game.start_new_round()?;
         match result {

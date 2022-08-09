@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{bail, Context};
 use rand::{seq::SliceRandom, thread_rng, Rng};
@@ -7,7 +7,7 @@ use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
 use ureq::{Agent, AgentBuilder, Response};
 
-use crate::{game::LANGUAGES, CONFIG_PATH};
+use crate::{game::LANGUAGES, Config};
 
 const GITHUB_BASE_URL: &str = "https://api.github.com";
 
@@ -70,18 +70,38 @@ impl Default for Github {
 }
 
 impl Github {
-    pub fn apply_token(&mut self, token: Option<String>) -> anyhow::Result<()> {
-        if let Some(token) = token {
+    pub fn new(config: &mut Config, token: Option<String>) -> anyhow::Result<Self> {
+        let mut github = Self::default();
+        github.token = github.apply_token(config, token)?;
+
+        Ok(github)
+    }
+
+    pub fn apply_token(
+        &mut self,
+        config: &mut Config,
+        token_option: Option<String>,
+    ) -> anyhow::Result<Option<String>> {
+        if let Some(token) = token_option {
             Github::test_token_structure(&token)?;
-            self.validate_token(&token, false)?;
-            fs::write(CONFIG_PATH, &token).context("Failed to write token to config file")?;
-            self.token = Some(token);
-        } else if let Ok(token) = fs::read_to_string(CONFIG_PATH) {
-            self.validate_token(&token, true)?;
-            self.token = Some(token);
+            self.validate_token(&token)
+                .context("Invalid personal access token")?;
+
+            config.token = token.clone();
+            confy::store("guess-that-lang", config)?;
+            return Ok(Some(token));
+        } else if !config.token.is_empty() {
+            let result = self.validate_token(&config.token);
+            if result.is_err() {
+                config.token = String::new();
+                confy::store("guess-that-lang", config)?;
+                result.context("The token found in the config is invalid, so it has been removed. Please try again.")?;
+            } else {
+                return Ok(Some(config.token.clone()));
+            }
         }
 
-        Ok(())
+        Ok(None)
     }
 
     /// Test a Github personal access token via regex and return it if valid. The
@@ -103,24 +123,12 @@ impl Github {
 
     /// Queries the Github ratelimit API using the provided token to make sure it's
     /// valid. The ratelimit data itself isn't used.
-    pub fn validate_token(&self, token: &str, from_file: bool) -> anyhow::Result<Response> {
+    pub fn validate_token(&self, token: &str) -> anyhow::Result<Response> {
         self.agent
             .get(&format!("{GITHUB_BASE_URL}/rate_limit"))
             .set("Authorization", &format!("Bearer {token}"))
             .call()
-            .map_err(|_| {
-                anyhow::anyhow!(
-                    "Invalid personal access token{}",
-                    if from_file {
-                        format!(
-                            " (from {}). Please delete the file and try again.",
-                            CONFIG_PATH
-                        )
-                    } else {
-                        String::from("")
-                    }
-                )
-            })
+            .map_err(std::convert::Into::into)
     }
 
     /// Get a vec of random valid gists on Github. This is used with the assumption
@@ -174,6 +182,9 @@ mod tests {
     #[allow(dead_code)]
     #[ignore]
     fn invalid_token() {
-        assert!(Github::default().validate_token("invalid", false).is_err());
+        assert!(Github::new(&mut Config::default(), None)
+            .unwrap()
+            .validate_token("invalid")
+            .is_err());
     }
 }
