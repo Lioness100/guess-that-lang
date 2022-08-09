@@ -20,7 +20,8 @@ use crossterm::{
     style::Print,
     terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
-use dark_light::Mode;
+// Lioness100/guess-that-lang#5
+// use dark_light::Mode;
 use syntect::{
     dumps,
     easy::HighlightLines,
@@ -112,10 +113,12 @@ impl Terminal {
 
     /// Get light/dark mode specific theme.
     pub fn get_theme() -> &'static str {
-        match dark_light::detect() {
-            Mode::Dark => "Monokai Extended",
-            Mode::Light => "Monakai Extended Light",
-        }
+        "Monokai Extended"
+        // Lioness100/guess-that-lang#5
+        // match dark_light::detect() {
+        //     Mode::Dark => "Monokai Extended",
+        //     Mode::Light => "Monakai Extended Light",
+        // }
     }
 
     /// Cuts the code after 10 non empty lines and returns an iterator (with

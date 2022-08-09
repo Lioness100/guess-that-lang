@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
 description = "CLI game to see how fast you can guess the language of a code block!"
@@ -19,7 +19,8 @@ confy = "0.4.0"
 console = "0.15.1"
 crossbeam-utils = "0.8.11"
 crossterm = "0.24.0"
-dark-light = "0.2.2"
+# Lioness100/guess-that-lang#5
+# dark-light = "0.2.2"
 rand = "0.8.5"
 regex = "1.6.0"
 serde = { version = "1.0.143", features = ["derive"] }
