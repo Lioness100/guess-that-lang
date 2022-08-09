@@ -70,8 +70,8 @@ pub struct Game {
 /// unexpected errors).
 impl Drop for Game {
     fn drop(&mut self) {
-        let _ = disable_raw_mode();
-        let _ = execute!(self.terminal.stdout, Show, LeaveAlternateScreen);
+        let _raw = disable_raw_mode();
+        let _leave = execute!(self.terminal.stdout, Show, LeaveAlternateScreen);
 
         println!(
             "You scored {} points!",
@@ -83,7 +83,7 @@ impl Drop for Game {
 impl Game {
     /// Create new game.
     pub fn new(client: Github) -> Self {
-        let mut game: Self = Default::default();
+        let mut game = Game::default();
         game.client = client;
 
         game
