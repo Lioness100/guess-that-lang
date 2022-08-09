@@ -46,7 +46,7 @@ pub const SYNTAX_DUMP_PATH: &str = "assets/dumps/syntaxes.dump";
 impl Default for Terminal {
     fn default() -> Self {
         #[cfg(windows)]
-        let _ = ansi_term::enable_ansi_support();
+        let _ansi = ansi_term::enable_ansi_support();
 
         let themes: ThemeSet = dumps::from_dump_file(get_absolute_path(THEME_DUMP_PATH))
             .unwrap_or_else(|_| panic!("Failed to load {THEME_DUMP_PATH}"));
@@ -114,7 +114,7 @@ impl Terminal {
     }
 
     /// Get light/dark mode specific theme.
-    fn get_theme() -> &'static str {
+    pub fn get_theme() -> &'static str {
         match dark_light::detect() {
             Mode::Dark => "Monokai Extended",
             Mode::Light => "Monakai Extended Light",
