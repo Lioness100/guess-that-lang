@@ -16,7 +16,6 @@ ansi_term = "0.12.1"
 anyhow = "1.0.59"
 argh = "0.1.8"
 confy = "0.4.0"
-console = "0.15.1"
 crossbeam-utils = "0.8.11"
 crossterm = "0.24.0"
 # Lioness100/guess-that-lang#5
