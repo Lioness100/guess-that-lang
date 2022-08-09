@@ -158,8 +158,8 @@ impl Terminal {
 
         let line_separator_start = "─".repeat(7);
 
-        let width = crossterm::terminal::size().unwrap().0 as usize;
-        let line_separator_end = "─".repeat(width - 8);
+        let (width, _) = crossterm::terminal::size().unwrap();
+        let line_separator_end = "─".repeat(width as usize - 8);
 
         let [top, mid, bottom] = ["┬", "┼", "┴"].map(|char| {
             Color::White
