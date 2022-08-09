@@ -1,4 +1,5 @@
 use std::{
+    ops::ControlFlow,
     sync::{mpsc, Mutex},
     thread,
     time::Duration,
@@ -50,13 +51,6 @@ pub const LANGUAGES: [&str; 25] = [
     "Swift",
     "TypeScript",
 ];
-
-/// The necessary behavior after each round (exit if the user quits or gets the
-/// answer incorrect, continue otherwise).
-pub enum GameResult {
-    Continue,
-    Exit,
-}
 
 /// The all-encompassing game struct.
 pub struct Game {
@@ -131,8 +125,7 @@ impl Game {
     }
 
     /// Start a new round, which is called in the main function with a for loop.
-    /// The loop will break if [`GameResult::Exit`] is returned.
-    pub fn start_new_round(&mut self) -> anyhow::Result<GameResult> {
+    pub fn start_new_round(&mut self) -> anyhow::Result<ControlFlow<()>> {
         if self.gist_data.is_empty() {
             self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
         }
@@ -167,7 +160,7 @@ impl Game {
                 let char = Terminal::read_input_char();
                 if char == 'q' {
                     sender.send(()).unwrap();
-                    Ok(GameResult::Exit)
+                    Ok(ControlFlow::Break(()))
                 } else {
                     let result = self.terminal.process_input(
                         sender,

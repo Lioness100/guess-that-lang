@@ -21,8 +21,9 @@
     clippy::missing_panics_doc,
 )]
 
+use std::ops::ControlFlow;
+
 use argh::FromArgs;
-use game::GameResult;
 use serde::{Deserialize, Serialize};
 
 pub mod game;
@@ -57,8 +58,8 @@ pub fn main() -> anyhow::Result<()> {
     loop {
         let result = game.start_new_round()?;
         match result {
-            GameResult::Continue => game.terminal.clear_screen(),
-            GameResult::Exit => break,
+            ControlFlow::Continue(_) => game.terminal.clear_screen(),
+            ControlFlow::Break(_) => break,
         };
     }
 

@@ -1,11 +1,13 @@
 use std::{
+    env,
     io::{stdout, Stdout, Write},
+    ops::ControlFlow,
     sync::{
         mpsc::{Receiver, Sender},
         Mutex,
     },
+    thread,
     time::Duration,
-    {env, thread},
 };
 
 use ansi_term::{
@@ -30,10 +32,7 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::{
-    game::{GameResult, PROMPT},
-    Config,
-};
+use crate::{game::PROMPT, Config};
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
@@ -272,7 +271,7 @@ impl Terminal {
         correct_language: &str,
         available_points: &Mutex<f32>,
         total_points: &mut u32,
-    ) -> anyhow::Result<GameResult> {
+    ) -> anyhow::Result<ControlFlow<()>> {
         // Send a message which results in [`Terminal::start_showing_code`] to
         // not show the next line.
         let _ = sender.send(());
@@ -316,7 +315,7 @@ impl Terminal {
             *total_points += *available_points as u32;
             stdout.flush()?;
 
-            Ok(GameResult::Continue)
+            Ok(ControlFlow::Continue(()))
         } else {
             let incorrect_option_text = Self::format_option(
                 &num.to_string(),
@@ -335,7 +334,7 @@ impl Terminal {
                 RestorePosition
             )?;
 
-            Ok(GameResult::Exit)
+            Ok(ControlFlow::Break(()))
         }
     }
 
