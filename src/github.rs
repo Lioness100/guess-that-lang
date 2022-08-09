@@ -1,68 +1,24 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, fs, path::Path};
 
-use anyhow::bail;
-use octocrab::OctocrabBuilder;
+use anyhow::{bail, Context};
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use regex::RegexBuilder;
 use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
+use ureq::{Agent, AgentBuilder, Response};
 
-use crate::{game::LANGUAGES, CONFIG_PATH};
+use crate::{game::LANGUAGES, path::get_absolute_path, CONFIG_PATH};
 
-/// Test a Github personal access token via regex and return it if valid. The
-/// second step of validation is [`validate_token`] which requires querying the
-/// Github API asynchronously and thus can not be used with [`clap::value_parser`].
-pub fn test_token_structure(token: &str) -> Result<String, String> {
-    let re = RegexBuilder::new(r"[\da-f]{40}|ghp_\w{36,251}")
-        // This is an expensive regex, so the size limit needs to be increased.
-        .size_limit(1 << 25)
-        .build()
-        .unwrap();
-
-    if re.is_match(token) {
-        Ok(token.to_string())
-    } else {
-        Err(String::from("Invalid access token"))
-    }
-}
-
-#[derive(Deserialize)]
-pub struct RateLimit;
-
-/// Queries the Github ratelimit API using the provided token to make sure it's
-/// valid. The ratelimit data itself isn't used.
-pub async fn apply_token(token: &str, from_file: bool) -> anyhow::Result<()> {
-    // Register the token as authentication with [`octocrab::Octocrab`].
-    let instance = octocrab::initialise(OctocrabBuilder::new().personal_token(token.to_string()))?;
-    let ratelimit = instance
-        .get::<RateLimit, &str, ()>("rate_limit", None)
-        .await;
-
-    if ratelimit.is_err() {
-        bail!(
-            "Invalid personal access token{}",
-            if from_file {
-                format!(
-                    " (from {}). Please delete the file and try again.",
-                    CONFIG_PATH
-                )
-            } else {
-                String::from("")
-            }
-        );
-    }
-
-    Ok(())
-}
+const GITHUB_BASE_URL: &str = "https://api.github.com";
 
 /// The relevant fields from the gist schema returned by the Github API.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct Gist {
     pub files: BTreeMap<String, GistFile>,
 }
 
 // The relevant fields from the gist file schema returned by the Github API.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct GistFile {
     pub filename: String,
     pub language: Option<String>,
@@ -95,28 +51,112 @@ impl GistData {
     }
 }
 
-/// Get a vec of random valid gists on Github. This is used with the assumption
-/// that at least one valid gist will be found.
-pub async fn get_gists(syntaxes: &SyntaxSet) -> anyhow::Result<Vec<GistData>> {
-    let octocrab = octocrab::instance();
-    let relative_url = format!(
-        "gists/public?page={}",
-        rand::thread_rng().gen_range(0..=100)
-    );
+pub struct Github {
+    agent: Agent,
+    token: Option<String>,
+}
 
-    let gists_page = octocrab
-        .get_page::<Gist>(&Some(octocrab.absolute_url(relative_url).unwrap()))
-        .await?
-        .unwrap();
+impl Default for Github {
+    fn default() -> Self {
+        let version = option_env!("CARGO_PKG_VERSION").unwrap_or("unknown");
+        let user_agent =
+            format!("guess-that-lang/{version} (https://github.com/Lioness100/guess-that-lang)");
 
-    let mut valid_gists = gists_page
-        .into_iter()
-        .filter_map(|gist| GistData::from(gist, syntaxes))
-        .collect::<Vec<_>>();
+        Self {
+            agent: AgentBuilder::new().user_agent(&user_agent).build(),
+            token: None,
+        }
+    }
+}
 
-    valid_gists.shuffle(&mut thread_rng());
+impl Github {
+    pub fn apply_token(&mut self, token: Option<String>) -> anyhow::Result<()> {
+        let config_path = get_absolute_path(CONFIG_PATH);
 
-    Ok(valid_gists)
+        if let Some(token) = token {
+            Github::test_token_structure(&token)?;
+            self.validate_token(&token, false)?;
+            fs::write(config_path, &token).context("Failed to write token to config file")?;
+            self.token = Some(token);
+        } else if let Ok(token) = fs::read_to_string(config_path) {
+            self.validate_token(&token, true)?;
+            self.token = Some(token);
+        }
+
+        Ok(())
+    }
+
+    /// Test a Github personal access token via regex and return it if valid. The
+    /// second step of validation is [`validate_token`] which requires querying the
+    /// Github API asynchronously and thus can not be used with [`clap::value_parser`].
+    pub fn test_token_structure(token: &str) -> anyhow::Result<String> {
+        let re = RegexBuilder::new(r"[\da-f]{40}|ghp_\w{36,251}")
+            // This is an expensive regex, so the size limit needs to be increased.
+            .size_limit(1 << 25)
+            .build()
+            .unwrap();
+
+        if re.is_match(token) {
+            Ok(token.to_string())
+        } else {
+            bail!("Invalid token format")
+        }
+    }
+
+    /// Queries the Github ratelimit API using the provided token to make sure it's
+    /// valid. The ratelimit data itself isn't used.
+    pub fn validate_token(&self, token: &str, from_file: bool) -> anyhow::Result<Response> {
+        self.agent
+            .get(&format!("{GITHUB_BASE_URL}/rate_limit"))
+            .set("Authorization", &format!("Bearer {token}"))
+            .call()
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Invalid personal access token{}",
+                    if from_file {
+                        format!(
+                            " (from {}). Please delete the file and try again.",
+                            CONFIG_PATH
+                        )
+                    } else {
+                        String::from("")
+                    }
+                )
+            })
+    }
+
+    /// Get a vec of random valid gists on Github. This is used with the assumption
+    /// that at least one valid gist will be found.
+    pub fn get_gists(&self, syntaxes: &SyntaxSet) -> anyhow::Result<Vec<GistData>> {
+        let mut request = ureq::get(&format!("{GITHUB_BASE_URL}/gists/public"))
+            .query("page", &rand::thread_rng().gen_range(0..=100).to_string());
+
+        if let Some(token) = &self.token {
+            request = request.set("Authorization", &format!("Bearer {token}"));
+        }
+
+        let mut gists = request
+            .call()?
+            .into_json::<Vec<Gist>>()?
+            .into_iter()
+            .filter_map(|gist| GistData::from(gist, syntaxes))
+            .collect::<Vec<_>>();
+
+        gists.shuffle(&mut thread_rng());
+
+        Ok(gists)
+    }
+
+    /// Get single gist content.
+    pub fn get_gist(&self, url: &str) -> anyhow::Result<String> {
+        let mut request = ureq::get(url);
+
+        if let Some(token) = &self.token {
+            request = request.set("Authorization", &format!("Bearer {token}"));
+        }
+
+        Ok(request.call()?.into_string()?)
+    }
 }
 
 #[cfg(test)]
@@ -125,17 +165,17 @@ mod tests {
 
     #[test]
     fn access_token_regex() {
-        assert!(test_token_structure(&"a".repeat(40)).is_ok());
-        assert!(test_token_structure(&format!("ghp_{}", "a".repeat(36))).is_ok());
-        assert!(test_token_structure(&"g".repeat(40)).is_err());
-        assert!(test_token_structure(&"a".repeat(39)).is_err());
-        assert!(test_token_structure(&format!("ghp_{}", ".".repeat(36))).is_err());
-        assert!(test_token_structure(&format!("ghp_{}", "a".repeat(35))).is_err());
+        assert!(Github::test_token_structure(&"a".repeat(40)).is_ok());
+        assert!(Github::test_token_structure(&format!("ghp_{}", "a".repeat(36))).is_ok());
+        assert!(Github::test_token_structure(&"g".repeat(40)).is_err());
+        assert!(Github::test_token_structure(&"a".repeat(39)).is_err());
+        assert!(Github::test_token_structure(&format!("ghp_{}", ".".repeat(36))).is_err());
+        assert!(Github::test_token_structure(&format!("ghp_{}", "a".repeat(35))).is_err());
     }
 
-    #[tokio::test]
+    #[allow(dead_code)]
     #[ignore]
-    async fn invalid_token() {
-        assert!(apply_token("invalid", false).await.is_err());
+    fn invalid_token() {
+        assert!(Github::default().validate_token("invalid", false).is_err());
     }
 }
