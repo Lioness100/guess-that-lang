@@ -57,8 +57,8 @@ impl Default for Terminal {
 
         let mut stdout = stdout();
 
-        let _ = execute!(stdout, EnterAlternateScreen, Hide);
-        let _ = enable_raw_mode();
+        let _hide = execute!(stdout, EnterAlternateScreen, Hide);
+        let _raw = enable_raw_mode();
 
         Self {
             syntaxes,
@@ -128,11 +128,11 @@ impl Terminal {
         let mut taken_lines: u8 = 0;
         LinesWithEndings::from(code)
             .take_while(move |&line| {
-                if line != "\n" {
+                if line == "\n" {
+                    true
+                } else {
                     taken_lines += 1;
                     taken_lines <= 10
-                } else {
-                    true
                 }
             })
             .enumerate()
@@ -164,7 +164,7 @@ impl Terminal {
         let [top, mid, bottom] = ["┬", "┼", "┴"].map(|char| {
             Color::White
                 .dimmed()
-                .paint(line_separator_start.to_owned() + char + &line_separator_end)
+                .paint(line_separator_start.clone() + char + &line_separator_end)
                 .to_string()
         });
 
@@ -173,15 +173,14 @@ impl Terminal {
                 let dots: String = line
                     .chars()
                     // Replace all non whitespace characters with dots.
-                    .map(|char| if !char.is_whitespace() { '·' } else { char })
+                    .map(|char| if char.is_whitespace() { char } else { '·' })
                     .collect();
 
                 // Trim the end of the line to remove extraneous newlines, and
                 // then add one manually.
                 format!("{: ^7}{pipe} {}\n", idx + 1, dots.trim_end())
             })
-            .collect::<Vec<_>>()
-            .join("");
+            .collect::<String>();
 
         let option_text = options
             .iter()

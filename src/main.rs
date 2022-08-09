@@ -1,3 +1,26 @@
+#![forbid(unsafe_code)]
+#![warn(clippy::pedantic)]
+#![allow(
+    // Allowed to avoid breaking changes.
+    clippy::module_name_repetitions,
+    clippy::struct_excessive_bools,
+    clippy::unused_self,
+    // Allowed as they are too pedantic
+    clippy::cast_possible_truncation,
+    clippy::unreadable_literal,
+    clippy::cast_possible_wrap,
+    clippy::wildcard_imports,
+    clippy::cast_sign_loss,
+    clippy::too_many_lines,
+    clippy::doc_markdown,
+    clippy::cast_lossless,
+    clippy::must_use_candidate,
+    clippy::needless_pass_by_value,
+    // Document this later
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+)]
+
 use argh::FromArgs;
 use game::GameResult;
 
