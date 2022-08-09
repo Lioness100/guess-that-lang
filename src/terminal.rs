@@ -149,7 +149,7 @@ impl Terminal {
         let pipe = Color::White.dimmed().paint("│");
 
         let points = format!(
-            "{padding}{pipe} {}{}\n{padding}{pipe} {}{}\n{padding}{pipe} {}{}",
+            "{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}",
             Color::White.bold().paint("High Score: "),
             Color::Purple.paint(config.high_score.to_string()),
             Color::White.bold().paint("Total Points: "),
@@ -181,7 +181,7 @@ impl Terminal {
 
                 // Trim the end of the line to remove extraneous newlines, and
                 // then add one manually.
-                format!("{: ^7}{pipe} {}\n", idx + 1, dots.trim_end())
+                format!("{: ^7}{pipe} {}\r\n", idx + 1, dots.trim_end())
             })
             .collect::<String>();
 
@@ -190,12 +190,12 @@ impl Terminal {
             .enumerate()
             .map(|(idx, option)| Self::format_option(&(idx + 1).to_string(), option))
             .collect::<Vec<_>>()
-            .join("\n");
+            .join("\r\n");
 
         let quit_option_text = Self::format_option("q", "Quit");
 
         let text = format!(
-            "{top}\n{points}\n{mid}\n{dotted_code}{bottom}\n\n{PROMPT}\n\n{option_text}\n{quit_option_text}"
+            "{top}\r\n{points}\r\n{mid}\r\n{dotted_code}{bottom}\r\n\r\n{PROMPT}\r\n\r\n{option_text}\r\n{quit_option_text}"
         );
 
         execute!(self.stdout.lock(), Print(text)).unwrap();

@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.4"
+version = "1.0.5"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
 description = "CLI game to see how fast you can guess the language of a code block!"
