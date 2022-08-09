@@ -38,8 +38,8 @@ use crate::{
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
     pub stdout: Stdout,
-    theme: Theme,
-    is_truecolor: bool,
+    pub theme: Theme,
+    pub is_truecolor: bool,
 }
 
 impl Default for Terminal {
@@ -84,7 +84,7 @@ impl Terminal {
     /// Converts [`syntect::highlighting::Color`] to [`ansi_term::Color`]. The
     /// implementation is taked from https://github.com/sharkdp/bat and relevant
     /// explanations of this functions can be found there.
-    fn to_ansi_color(color: highlighting::Color, true_color: bool) -> ansi_term::Color {
+    pub fn to_ansi_color(color: highlighting::Color, true_color: bool) -> ansi_term::Color {
         if color.a == 0 {
             match color.r {
                 0x00 => Color::Black,
@@ -105,7 +105,7 @@ impl Terminal {
     }
 
     /// Return true if the current running terminal support true color.
-    fn is_truecolor() -> bool {
+    pub fn is_truecolor() -> bool {
         env::var("COLORTERM")
             .map(|colorterm| colorterm == "truecolor" || colorterm == "24bit")
             .unwrap_or(false)
@@ -353,7 +353,7 @@ impl Terminal {
     }
 
     /// Utility function to format an option.
-    fn format_option(key: &str, name: &str) -> String {
+    pub fn format_option(key: &str, name: &str) -> String {
         format!(
             "{padding}[{key}] {name}",
             padding = " ".repeat(5),

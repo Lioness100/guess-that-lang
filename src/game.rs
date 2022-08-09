@@ -62,9 +62,9 @@ pub enum GameResult {
 pub struct Game {
     pub points: u32,
     pub terminal: Terminal,
-    config: Config,
-    client: Github,
-    gist_data: Vec<GistData>,
+    pub config: Config,
+    pub client: Github,
+    pub gist_data: Vec<GistData>,
 }
 
 /// Cleanup terminal after the Game is over (this will also account for
@@ -114,7 +114,7 @@ impl Game {
     /// Get the language options for a round. This will choose 3 random unique
     /// languages, push them to a vec along with the correct language, and
     /// shuffle the vec.
-    fn get_options(correct_language: &str) -> Vec<&str> {
+    pub fn get_options(correct_language: &str) -> Vec<&str> {
         let mut options = Vec::<&str>::with_capacity(4);
         options.push(correct_language);
 

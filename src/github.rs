@@ -9,7 +9,7 @@ use ureq::{Agent, AgentBuilder, Response};
 
 use crate::{game::LANGUAGES, Config};
 
-const GITHUB_BASE_URL: &str = "https://api.github.com";
+pub const GITHUB_BASE_URL: &str = "https://api.github.com";
 
 /// The relevant fields from the gist schema returned by the Github API.
 #[derive(Deserialize)]
@@ -35,7 +35,7 @@ pub struct GistData {
 impl GistData {
     /// Create a new GistData struct from a [`Gist`]. This will return [`None`]
     /// if none of the gist files use one of the supported languages.
-    fn from(gist: Gist, syntaxes: &SyntaxSet) -> Option<GistData> {
+    pub fn from(gist: Gist, syntaxes: &SyntaxSet) -> Option<GistData> {
         let file = gist.files.into_values().find(|file| {
             matches!(file.language.as_ref(), Some(language) if LANGUAGES.contains(&language.as_str()))
         })?;
@@ -52,8 +52,8 @@ impl GistData {
 }
 
 pub struct Github {
-    agent: Agent,
-    token: Option<String>,
+    pub agent: Agent,
+    pub token: Option<String>,
 }
 
 impl Default for Github {

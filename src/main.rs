@@ -47,7 +47,7 @@ pub struct Config {
     token: String,
 }
 
-fn main() -> anyhow::Result<()> {
+pub fn main() -> anyhow::Result<()> {
     let args: Args = argh::from_env();
     let mut config: Config = confy::load("guess-that-lang")?;
 
