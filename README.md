@@ -1,9 +1,11 @@
 # Guess That Lang!
 
-CLI game to see how fast you can guess the language of a code block! If you like
-the game, please consider giving a ⭐!
+CLI game to see how fast you can guess the language of a code block!
 
-https://user-images.githubusercontent.com/65814829/183319184-24f5b339-0a19-460d-98a5-8072c9d881d3.mp4
+_If you like
+the game, please consider giving a ⭐!_
+
+![Game Demo](https://user-images.githubusercontent.com/65814829/183648642-28ceaa6c-8e90-4375-9aa4-0d66fe3e9226.gif)
 
 Code is retrieved from [random
 gists](https://docs.github.com/en/rest/gists/gists#list-public-gists) on GitHub
