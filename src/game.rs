@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
-pub const PROMPT: &str = "Which programming language is this? (Type the corresponsing number)";
+pub const PROMPT: &str = "Which programming language is this? (Type the corresponding number)";
 
 /// All valid languages (top 24 from the Stack Overflow 2022 Developer survey,
 /// but substituting VBA for Dockerfile).
