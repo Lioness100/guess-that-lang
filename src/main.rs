@@ -1,7 +1,6 @@
 use argh::FromArgs;
 use game::GameResult;
 
-pub mod path;
 pub mod game;
 pub mod github;
 pub mod path;
