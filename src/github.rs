@@ -7,7 +7,7 @@ use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
 use ureq::{Agent, AgentBuilder, Response};
 
-use crate::{game::LANGUAGES, path::get_absolute_path, CONFIG_PATH};
+use crate::{game::LANGUAGES, CONFIG_PATH};
 
 const GITHUB_BASE_URL: &str = "https://api.github.com";
 
@@ -71,14 +71,12 @@ impl Default for Github {
 
 impl Github {
     pub fn apply_token(&mut self, token: Option<String>) -> anyhow::Result<()> {
-        let config_path = get_absolute_path(CONFIG_PATH);
-
         if let Some(token) = token {
             Github::test_token_structure(&token)?;
             self.validate_token(&token, false)?;
-            fs::write(config_path, &token).context("Failed to write token to config file")?;
+            fs::write(CONFIG_PATH, &token).context("Failed to write token to config file")?;
             self.token = Some(token);
-        } else if let Ok(token) = fs::read_to_string(config_path) {
+        } else if let Ok(token) = fs::read_to_string(CONFIG_PATH) {
             self.validate_token(&token, true)?;
             self.token = Some(token);
         }

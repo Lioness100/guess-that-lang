@@ -26,7 +26,6 @@ use game::GameResult;
 
 pub mod game;
 pub mod github;
-pub mod path;
 pub mod terminal;
 
 use crate::{game::Game, github::Github};
