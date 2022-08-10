@@ -5,7 +5,7 @@ CLI game to see how fast you can guess the language of a code block!
 _If you like
 the game, please consider giving a ⭐!_
 
-![Game Demo](https://user-images.githubusercontent.com/65814829/183648642-28ceaa6c-8e90-4375-9aa4-0d66fe3e9226.gif)
+![Game Demo](https://user-images.githubusercontent.com/65814829/183973036-c283d147-8061-40c8-a306-916801d6c9bc.gif)
 
 Code is retrieved from [random
 gists](https://docs.github.com/en/rest/gists/gists#list-public-gists) on GitHub
