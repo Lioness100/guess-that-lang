@@ -69,7 +69,7 @@ impl Drop for Game {
         let _leave = execute!(self.terminal.stdout, Show, LeaveAlternateScreen);
 
         println!(
-            "You scored {} points!",
+            "\nYou scored {} points!",
             Color::Green.bold().paint(self.points.to_string())
         );
 
