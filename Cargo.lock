@@ -248,7 +248,7 @@ dependencies = [
 
 [[package]]
 name = "guess-that-lang"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "ansi_colours",
  "ansi_term",
