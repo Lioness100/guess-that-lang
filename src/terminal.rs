@@ -291,7 +291,7 @@ impl Terminal {
         let correct_option_name_text = if was_correct {
             format!("{correct_language} (+ {available_points})")
         } else {
-            correct_language.to_string()
+            format!("{correct_language} (Correct)")
         };
 
         let correct_option_text = Self::format_option(
@@ -321,7 +321,7 @@ impl Terminal {
                 &num.to_string(),
                 &Color::RGB(255, 0, 51)
                     .bold()
-                    .paint(options[num as usize - 1])
+                    .paint(format!("{} (Incorrect)", options[num as usize - 1]))
                     .to_string(),
             );
 
