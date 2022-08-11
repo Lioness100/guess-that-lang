@@ -76,10 +76,13 @@ impl Drop for Game {
         if self.points > self.config.high_score {
             if self.config.high_score > 0 {
                 println!(
-                    "You beat your high score of {}!",
-                    Color::Green
+                    "You beat your high score of {}!\n\nShare it: {}",
+                    Color::Purple
                         .bold()
-                        .paint(self.config.high_score.to_string())
+                        .paint(self.config.high_score.to_string()),
+                    Color::Cyan
+                        .bold()
+                        .paint("https://github.com/Lioness100/guess-that-lang/discussions/6")
                 );
             }
 

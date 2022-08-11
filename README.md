@@ -1,5 +1,7 @@
 # Guess That Lang!
 
+[![Share Your High Score](https://img.shields.io/badge/-Share%20Your%20High%20Score!-blue?style=for-the-badge&logo=github&logoColor=black)](https://github.com/Lioness100/guess-that-lang/discussions/6)
+
 CLI game to see how fast you can guess the language of a code block!
 
 _If you like
