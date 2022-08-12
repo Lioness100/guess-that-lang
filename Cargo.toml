@@ -1,6 +1,7 @@
 [package]
 name = "guess-that-lang"
 version = "1.0.8"
+rust-version = "1.63"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
 description = "CLI game to see how fast you can guess the language of a code block!"
@@ -16,8 +17,7 @@ ansi_term = "0.12.1"
 anyhow = "1.0.59"
 argh = "0.1.8"
 confy = "0.4.0"
-crossbeam-utils = "0.8.11"
-crossterm = "0.24.0"
+crossterm = "0.25.0"
 # Lioness100/guess-that-lang#5
 # dark-light = "0.2.2"
 rand = "0.8.5"

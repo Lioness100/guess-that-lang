@@ -149,8 +149,8 @@ impl Game {
 
         // [`Terminal::start_showing_code`] and [`Terminal::read_input_char`]
         // both create blocking loops, so they have to be used in separate threads.
-        crossbeam_utils::thread::scope(|s| {
-            let display = s.spawn(|_| {
+        thread::scope(|s| {
+            let display = s.spawn(|| {
                 self.terminal.start_showing_code(
                     Terminal::trim_code(&code),
                     &gist.extension,
@@ -159,7 +159,7 @@ impl Game {
                 );
             });
 
-            let input = s.spawn(|_| {
+            let input = s.spawn(|| {
                 let char = Terminal::read_input_char();
                 if char == 'q' {
                     sender.send(()).unwrap();
@@ -183,6 +183,5 @@ impl Game {
             display.join().unwrap();
             input.join().unwrap()
         })
-        .unwrap()
     }
 }
