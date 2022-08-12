@@ -243,7 +243,7 @@ impl Terminal {
 
         // This has to be made a variable as opposed to just checking if idx ==
         // 0 because the lines could be shuffled.
-        let mut is_first_line = false;
+        let mut is_first_line = true;
         for (idx, line) in iter {
             if line == "\n" {
                 continue;
