@@ -241,12 +241,17 @@ impl Terminal {
             Box::new(code_lines)
         };
 
+        // This has to be made a variable as opposed to just checking if idx ==
+        // 0 because the lines could be shuffled.
+        let mut is_first_line = false;
         for (idx, line) in iter {
             if line == "\n" {
                 continue;
             }
 
-            let millis = if idx == 0 { args.wait } else { 1500 };
+            let millis = if is_first_line { args.wait } else { 1500 };
+            is_first_line = false;
+
             thread::sleep(Duration::from_millis(millis));
 
             // The receiver will receive a message when the user has selected an
