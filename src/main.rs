@@ -35,8 +35,10 @@ use crate::{game::Game, github::Github};
 /// CLI game to see how fast you can guess the language of a code block!
 #[derive(FromArgs)]
 struct Args {
-    /// your personal access token, which will be stored in the .guess-that-lang file and thus will only need to be input once. This will allow the game to make more Github requests before getting ratelimited.
-    /// No scopes are required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang
+    /// your personal access token, which will be stored in the .guess-that-lang
+    /// file and thus will only need to be input once. This will allow the game
+    /// to make more Github requests before getting ratelimited. No scopes are
+    /// required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang
     #[argh(short = 't', option)]
     token: Option<String>,
 }
