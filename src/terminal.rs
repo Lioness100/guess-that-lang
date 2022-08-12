@@ -10,9 +10,12 @@ use std::{
     time::Duration,
 };
 
+#[cfg(windows)]
+use ansi_term::enable_ansi_support;
+
 use ansi_colours::ansi256_from_rgb;
 use ansi_term::{
-    enable_ansi_support, ANSIGenericStrings,
+    ANSIGenericStrings,
     Color::{self, Fixed, RGB},
 };
 use anyhow::Context;
