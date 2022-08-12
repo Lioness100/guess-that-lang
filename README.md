@@ -18,6 +18,9 @@ Survey](https://survey.stackoverflow.co/2022/#most-popular-technologies-language
 
 ## Installation
 
+> ⚠️ Rust 1.63.0 or higher is required to build the binary. Rust can be updated
+> with `rustup update`.
+
 Install [Rust](https://www.rust-lang.org/tools/install) using the recommended rustup installation method and then run:
 
 ```sh
