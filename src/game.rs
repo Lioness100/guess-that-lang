@@ -16,7 +16,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use crate::{
     github::{GistData, Github},
     terminal::Terminal,
-    Config,
+    Args, Config,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -54,7 +54,7 @@ pub const LANGUAGES: [&str; 25] = [
 
 /// The all-encompassing game struct.
 pub struct Game {
-    pub wait_time: u64,
+    pub args: Args,
     pub points: u32,
     pub terminal: Terminal,
     pub config: Config,
@@ -99,14 +99,14 @@ impl Drop for Game {
 
 impl Game {
     /// Create new game.
-    pub fn new(config: Config, client: Github, wait_time: u64) -> Self {
+    pub fn new(config: Config, client: Github, args: Args) -> Self {
         Self {
             points: 0,
             terminal: Terminal::default(),
             gist_data: Vec::new(),
             client,
             config,
-            wait_time,
+            args,
         }
     }
 
@@ -160,7 +160,7 @@ impl Game {
                     Terminal::trim_code(&code, &width),
                     &gist.extension,
                     &available_points,
-                    &self.wait_time,
+                    &self.args,
                     receiver,
                 );
             });

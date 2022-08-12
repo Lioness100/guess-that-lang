@@ -26,6 +26,7 @@ use crossterm::{
     style::Print,
     terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
+use rand::{seq::SliceRandom, thread_rng};
 // Lioness100/guess-that-lang#5
 // use dark_light::Mode;
 use syntect::{
@@ -36,7 +37,7 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::{game::PROMPT, Config};
+use crate::{game::PROMPT, Args, Config};
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
@@ -221,7 +222,7 @@ impl Terminal {
         code_lines: impl Iterator<Item = (usize, String)>,
         extension: &str,
         available_points: &Mutex<f32>,
-        wait_time: &u64,
+        args: &Args,
         receiver: Receiver<()>,
     ) {
         let syntax = self
@@ -230,12 +231,22 @@ impl Terminal {
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
 
         let mut highlighter = HighlightLines::new(syntax, &self.theme);
-        for (idx, line) in code_lines {
+
+        let iter: Box<dyn Iterator<Item = (usize, String)>> = if args.shuffle {
+            let mut code_lines_vec = code_lines.collect::<Vec<_>>();
+            code_lines_vec.shuffle(&mut thread_rng());
+
+            Box::new(code_lines_vec.into_iter())
+        } else {
+            Box::new(code_lines)
+        };
+
+        for (idx, line) in iter {
             if line == "\n" {
                 continue;
             }
 
-            let millis = if idx == 0 { *wait_time } else { 1500 };
+            let millis = if idx == 0 { args.wait } else { 1500 };
             thread::sleep(Duration::from_millis(millis));
 
             // The receiver will receive a message when the user has selected an

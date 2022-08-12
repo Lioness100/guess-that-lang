@@ -70,7 +70,7 @@ impl Default for Github {
 }
 
 impl Github {
-    pub fn new(config: &mut Config, token: Option<String>) -> anyhow::Result<Self> {
+    pub fn new(config: &mut Config, token: &Option<String>) -> anyhow::Result<Self> {
         let mut github = Self::default();
         github.token = github.apply_token(config, token)?;
 
@@ -80,16 +80,16 @@ impl Github {
     pub fn apply_token(
         &mut self,
         config: &mut Config,
-        token_option: Option<String>,
+        token_option: &Option<String>,
     ) -> anyhow::Result<Option<String>> {
         if let Some(token) = token_option {
-            Github::test_token_structure(&token)?;
-            self.validate_token(&token)
+            Github::test_token_structure(token)?;
+            self.validate_token(token)
                 .context("Invalid personal access token")?;
 
             config.token = token.clone();
             confy::store("guess-that-lang", config)?;
-            return Ok(Some(token));
+            return Ok(Some(token.to_string()));
         } else if !config.token.is_empty() {
             let result = self.validate_token(&config.token);
             if result.is_err() {
@@ -182,7 +182,7 @@ mod tests {
     #[allow(dead_code)]
     #[ignore]
     fn invalid_token() {
-        assert!(Github::new(&mut Config::default(), None)
+        assert!(Github::new(&mut Config::default(), &None)
             .unwrap()
             .validate_token("invalid")
             .is_err());

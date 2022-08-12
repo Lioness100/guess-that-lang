@@ -51,6 +51,9 @@ guess-that-lang --token "XXX" # or -t
 
 # Wait 5 seconds after showing the options before starting to reveal code. (Default: 1500)
 guess-that-lang --wait 5000 # or -w
+
+# Reveal lines in random order instead of top to bottom. (Default: false)
+guess-that-lang --shuffle # or -s
 ```
 
 ## Acknowledgements
