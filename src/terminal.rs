@@ -10,8 +10,9 @@ use std::{
     time::Duration,
 };
 
+use ansi_colours::ansi256_from_rgb;
 use ansi_term::{
-    ANSIGenericStrings,
+    enable_ansi_support, ANSIGenericStrings,
     Color::{self, Fixed, RGB},
 };
 use anyhow::Context;
@@ -20,7 +21,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent},
     execute, queue,
     style::Print,
-    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 // Lioness100/guess-that-lang#5
 // use dark_light::Mode;
@@ -44,7 +45,7 @@ pub struct Terminal {
 impl Default for Terminal {
     fn default() -> Self {
         #[cfg(windows)]
-        let _ansi = ansi_term::enable_ansi_support();
+        let _ansi = enable_ansi_support();
 
         let themes: ThemeSet = dumps::from_binary(include_bytes!("../assets/dumps/themes.dump"));
         let syntaxes: SyntaxSet =
@@ -99,7 +100,7 @@ impl Terminal {
         } else if true_color {
             RGB(color.r, color.g, color.b)
         } else {
-            Fixed(ansi_colours::ansi256_from_rgb((color.r, color.g, color.b)))
+            Fixed(ansi256_from_rgb((color.r, color.g, color.b)))
         }
     }
 
@@ -160,7 +161,7 @@ impl Terminal {
 
         let line_separator_start = "─".repeat(7);
 
-        let (width, _) = crossterm::terminal::size().unwrap();
+        let (width, _) = terminal::size().unwrap();
         let line_separator_end = "─".repeat(width as usize - 8);
 
         let [top, mid, bottom] = ["┬", "┼", "┴"].map(|char| {

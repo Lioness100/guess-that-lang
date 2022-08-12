@@ -128,14 +128,14 @@ impl Github {
             .get(&format!("{GITHUB_BASE_URL}/rate_limit"))
             .set("Authorization", &format!("Bearer {token}"))
             .call()
-            .map_err(std::convert::Into::into)
+            .map_err(Into::into)
     }
 
     /// Get a vec of random valid gists on Github. This is used with the assumption
     /// that at least one valid gist will be found.
     pub fn get_gists(&self, syntaxes: &SyntaxSet) -> anyhow::Result<Vec<GistData>> {
         let mut request = ureq::get(&format!("{GITHUB_BASE_URL}/gists/public"))
-            .query("page", &rand::thread_rng().gen_range(0..=100).to_string());
+            .query("page", &thread_rng().gen_range(0..=100).to_string());
 
         if let Some(token) = &self.token {
             request = request.set("Authorization", &format!("Bearer {token}"));
