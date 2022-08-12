@@ -21,7 +21,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::Print,
-    terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 // Lioness100/guess-that-lang#5
 // use dark_light::Mode;
@@ -121,10 +121,14 @@ impl Terminal {
         // }
     }
 
-    /// Cuts the code after 10 non empty lines and returns an iterator (with
-    /// indeces for line numbers). This is used for both
-    /// [`Terminal::print_round_info`] and [`Terminal::start_showing_code`].
-    pub fn trim_code(code: &str) -> impl Iterator<Item = (usize, &str)> {
+    /// Cuts the code horizontally after 10 non empty lines and vertically after
+    /// it exceeds the terminal width. Returns an iterator (with indeces for
+    /// line numbers). This is used for both [`Terminal::print_round_info`] and
+    /// [`Terminal::start_showing_code`].
+    pub fn trim_code<'a>(
+        code: &'a str,
+        width: &'a usize,
+    ) -> impl Iterator<Item = (usize, String)> + 'a {
         let mut taken_lines: u8 = 0;
         LinesWithEndings::from(code)
             .take_while(move |&line| {
@@ -135,16 +139,24 @@ impl Terminal {
                     taken_lines <= 10
                 }
             })
+            .map(|line| {
+                if line.len() + 9 > *width {
+                    format!("{}...", &line[..*width - 12])
+                } else {
+                    line.to_string()
+                }
+            })
             .enumerate()
     }
 
     /// Print the base table and all elements inside, including the code in dot form.
-    pub fn print_round_info<'a>(
+    pub fn print_round_info(
         &self,
         config: &Config,
         points: u32,
         options: &[&str],
-        code_lines: impl Iterator<Item = (usize, &'a str)>,
+        code_lines: impl Iterator<Item = (usize, String)>,
+        width: &usize,
     ) {
         let pipe = Color::White.dimmed().paint("│");
 
@@ -160,9 +172,7 @@ impl Terminal {
         );
 
         let line_separator_start = "─".repeat(7);
-
-        let (width, _) = terminal::size().unwrap();
-        let line_separator_end = "─".repeat(width as usize - 8);
+        let line_separator_end = "─".repeat(width - 8);
 
         let [top, mid, bottom] = ["┬", "┼", "┴"].map(|char| {
             Color::White
@@ -203,9 +213,9 @@ impl Terminal {
 
     /// Create a loop that will reveal a line of code and decrease
     /// `available_points` every 1.5 seconds.
-    pub fn start_showing_code<'a>(
+    pub fn start_showing_code(
         &self,
-        code_lines: impl Iterator<Item = (usize, &'a str)>,
+        code_lines: impl Iterator<Item = (usize, String)>,
         extension: &str,
         available_points: &Mutex<f32>,
         receiver: Receiver<()>,
@@ -230,7 +240,7 @@ impl Terminal {
             }
 
             let mut stdout = self.stdout.lock();
-            let line = self.highlight_line(line, &mut highlighter);
+            let line = self.highlight_line(&line, &mut highlighter);
 
             // Move to the row index of the dotted code and replace it with the
             // real code.

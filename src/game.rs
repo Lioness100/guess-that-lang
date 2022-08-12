@@ -9,7 +9,7 @@ use ansi_term::Color;
 use crossterm::{
     cursor::Show,
     execute,
-    terminal::{disable_raw_mode, LeaveAlternateScreen},
+    terminal::{self, disable_raw_mode, LeaveAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -137,11 +137,14 @@ impl Game {
         let code = self.client.get_gist(&gist.url)?;
 
         let options = Self::get_options(&gist.language);
+        let width = terminal::size().map(|(width, _)| width as usize).unwrap();
+
         self.terminal.print_round_info(
             &self.config,
             self.points,
             &options,
-            Terminal::trim_code(&code),
+            Terminal::trim_code(&code, &width),
+            &width,
         );
 
         let available_points = Mutex::new(100.0);
@@ -152,7 +155,7 @@ impl Game {
         thread::scope(|s| {
             let display = s.spawn(|| {
                 self.terminal.start_showing_code(
-                    Terminal::trim_code(&code),
+                    Terminal::trim_code(&code, &width),
                     &gist.extension,
                     &available_points,
                     receiver,
