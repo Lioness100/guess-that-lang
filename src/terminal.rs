@@ -18,7 +18,7 @@ use ansi_term::{
 use anyhow::Context;
 use crossterm::{
     cursor::{Hide, MoveTo, MoveToColumn, MoveUp, RestorePosition, SavePosition},
-    event::{self, Event, KeyCode, KeyEvent},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::Print,
     terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
@@ -343,10 +343,15 @@ impl Terminal {
     pub fn read_input_char() -> char {
         loop {
             if let Ok(Event::Key(KeyEvent {
-                code: KeyCode::Char(char @ ('1' | '2' | '3' | '4' | 'q')),
+                code: KeyCode::Char(char @ ('1' | '2' | '3' | '4' | 'q' | 'c')),
+                modifiers,
                 ..
             })) = event::read()
             {
+                if char == 'c' && modifiers != KeyModifiers::CONTROL {
+                    continue;
+                }
+
                 return char;
             }
         }

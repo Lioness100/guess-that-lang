@@ -161,7 +161,7 @@ impl Game {
 
             let input = s.spawn(|| {
                 let char = Terminal::read_input_char();
-                if char == 'q' {
+                if char == 'q' || (char == 'c') {
                     sender.send(()).unwrap();
                     Ok(ControlFlow::Break(()))
                 } else {
