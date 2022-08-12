@@ -35,12 +35,13 @@ use crate::{game::Game, github::Github};
 /// CLI game to see how fast you can guess the language of a code block!
 #[derive(FromArgs)]
 struct Args {
-    /// your personal access token, which will be stored in the .guess-that-lang
-    /// file and thus will only need to be input once. This will allow the game
-    /// to make more Github requests before getting ratelimited. No scopes are
-    /// required: https://github.com/settings/tokens/new?description=Guess%20That%20Lang
+    /// your personal access token
     #[argh(short = 't', option)]
     token: Option<String>,
+
+    /// the number of ms to wait before revealing code
+    #[argh(short = 'w', option, default = "1500")]
+    wait: u64,
 }
 
 /// Values to be persisted in a .toml file.
@@ -55,7 +56,7 @@ pub fn main() -> anyhow::Result<()> {
     let mut config: Config = confy::load("guess-that-lang")?;
 
     let client = Github::new(&mut config, args.token)?;
-    let mut game = Game::new(config, client);
+    let mut game = Game::new(config, client, args.wait);
 
     loop {
         let result = game.start_new_round()?;

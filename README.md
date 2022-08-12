@@ -47,8 +47,10 @@ scopes are required).
 
 ```sh
 # Tokens will be stored in a config file so you only need to input them once.
-guess-that-lang --token "XXX"
-guess-that-lang
+guess-that-lang --token "XXX" # or -t
+
+# Wait 5 seconds after showing the options before starting to reveal code. (Default: 1500)
+guess-that-lang --wait 5000 # or -w
 ```
 
 ## Acknowledgements

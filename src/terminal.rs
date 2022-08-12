@@ -221,6 +221,7 @@ impl Terminal {
         code_lines: impl Iterator<Item = (usize, String)>,
         extension: &str,
         available_points: &Mutex<f32>,
+        wait_time: &u64,
         receiver: Receiver<()>,
     ) {
         let syntax = self
@@ -234,7 +235,8 @@ impl Terminal {
                 continue;
             }
 
-            thread::sleep(Duration::from_millis(1500));
+            let millis = if idx == 0 { *wait_time } else { 1500 };
+            thread::sleep(Duration::from_millis(millis));
 
             // The receiver will receive a message when the user has selected an
             // option, at which point the code should not be updated further.
