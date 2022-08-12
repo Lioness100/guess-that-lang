@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.8"
+version = "1.0.9"
 rust-version = "1.63"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
@@ -23,5 +23,5 @@ crossterm = "0.25.0"
 rand = "0.8.5"
 regex = "1.6.0"
 serde = { version = "1.0.143", features = ["derive"] }
-syntect = "5.0.0"
+syntect = { version = "5.0.0", default_features = false, features = ["parsing", "regex-onig"] }
 ureq = { version = "2.5.0", features = ["json"] }
