@@ -86,7 +86,7 @@ impl Terminal {
     }
 
     /// Converts [`syntect::highlighting::Color`] to [`ansi_term::Color`]. The
-    /// implementation is taked from https://github.com/sharkdp/bat and relevant
+    /// implementation is taken from https://github.com/sharkdp/bat and relevant
     /// explanations of this functions can be found there.
     pub fn to_ansi_color(color: highlighting::Color, true_color: bool) -> ansi_term::Color {
         if color.a == 0 {
