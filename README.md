@@ -36,7 +36,7 @@ scopes are required).
 > wonky.
 
 ```sh
-# Tokens will be stored in .guess-that-lang and thus are only need to be input once.
+# Tokens will be stored in a config file so you only need to input them once.
 guess-that-lang --token "XXX"
 guess-that-lang
 ```
