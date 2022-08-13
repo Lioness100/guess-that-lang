@@ -59,7 +59,7 @@ impl Default for Terminal {
 
         let mut stdout = stdout();
 
-        let _hide = execute!(stdout, EnterAlternateScreen, Hide);
+        let _hide = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
         let _raw = enable_raw_mode();
 
         Self {
