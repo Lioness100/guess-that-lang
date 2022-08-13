@@ -26,6 +26,7 @@ use std::ops::ControlFlow;
 use argh::FromArgs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use terminal::ThemeStyle;
 
 pub mod game;
 pub mod github;
@@ -47,13 +48,18 @@ pub struct Args {
     /// whether or not to reveal lines in random order
     #[argh(short = 's', switch)]
     shuffle: bool,
+
+    /// whether to use dark or light theme (dark/light)
+    #[argh(option)]
+    theme: Option<String>,
 }
 
 /// Values to be persisted in a .toml file.
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Config {
     high_score: u32,
     token: String,
+    theme: Option<ThemeStyle>,
 }
 
 lazy_static! {
@@ -63,7 +69,7 @@ lazy_static! {
 
 pub fn main() -> anyhow::Result<()> {
     let client = Github::new()?;
-    let mut game = Game::new(client);
+    let mut game = Game::new(client)?;
 
     loop {
         let result = game.start_new_round()?;

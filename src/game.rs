@@ -85,7 +85,7 @@ impl Drop for Game {
 
             let new_config = Config {
                 high_score: self.points,
-                token: CONFIG.token.clone(),
+                ..CONFIG.clone()
             };
 
             let _config = confy::store("guess-that-lang", new_config);
@@ -95,13 +95,13 @@ impl Drop for Game {
 
 impl Game {
     /// Create new game.
-    pub fn new(client: Github) -> Self {
-        Self {
+    pub fn new(client: Github) -> anyhow::Result<Self> {
+        Ok(Self {
             points: 0,
-            terminal: Terminal::default(),
+            terminal: Terminal::new()?,
             gist_data: Vec::new(),
             client,
-        }
+        })
     }
 
     /// Get the language options for a round. This will choose 3 random unique

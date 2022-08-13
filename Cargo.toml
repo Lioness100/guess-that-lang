@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.13"
+version = "1.0.14"
 rust-version = "1.63"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
@@ -19,8 +19,6 @@ argh = "0.1.8"
 confy = "0.4.0"
 crossterm = "0.25.0"
 lazy_static = "1.4.0"
-# Lioness100/guess-that-lang#5
-# dark-light = "0.2.2"
 rand = "0.8.5"
 regex = "1.6.0"
 serde = { version = "1.0.143", features = ["derive"] }

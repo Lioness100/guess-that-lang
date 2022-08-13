@@ -87,7 +87,7 @@ impl Github {
                 "guess-that-lang",
                 Config {
                     token: token.clone(),
-                    high_score: CONFIG.high_score,
+                    ..CONFIG.clone()
                 },
             )?;
 
@@ -99,7 +99,7 @@ impl Github {
                     "guess-that-lang",
                     Config {
                         token: String::new(),
-                        high_score: CONFIG.high_score,
+                        ..CONFIG.clone()
                     },
                 )?;
 

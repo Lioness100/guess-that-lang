@@ -23,8 +23,7 @@ use crossterm::{
     terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
-// Lioness100/guess-that-lang#5
-// use dark_light::Mode;
+use serde::{Deserialize, Serialize};
 use syntect::{
     dumps,
     easy::HighlightLines,
@@ -33,7 +32,34 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::{game::PROMPT, ARGS, CONFIG};
+use crate::{game::PROMPT, Config, ARGS, CONFIG};
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ThemeStyle {
+    Dark,
+    Light,
+}
+
+impl TryFrom<Option<String>> for ThemeStyle {
+    type Error = ();
+
+    fn try_from(opt: Option<String>) -> Result<Self, Self::Error> {
+        match opt {
+            Some(string) if string == "dark" => Ok(Self::Dark),
+            Some(string) if string == "light" => Ok(Self::Light),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<ThemeStyle> for &'static str {
+    fn from(theme: ThemeStyle) -> Self {
+        match theme {
+            ThemeStyle::Dark => "Monokai Extended",
+            ThemeStyle::Light => "Monokai Extended Light",
+        }
+    }
+}
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
@@ -42,8 +68,8 @@ pub struct Terminal {
     pub is_truecolor: bool,
 }
 
-impl Default for Terminal {
-    fn default() -> Self {
+impl Terminal {
+    pub fn new() -> anyhow::Result<Self> {
         #[cfg(windows)]
         let _ansi = enable_ansi_support();
 
@@ -58,16 +84,14 @@ impl Default for Terminal {
         let _hide = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
         let _raw = enable_raw_mode();
 
-        Self {
+        Ok(Self {
             syntaxes,
             stdout,
-            theme: themes.themes[Terminal::get_theme()].clone(),
+            theme: themes.themes[Terminal::get_theme()?].clone(),
             is_truecolor: Terminal::is_truecolor(),
-        }
+        })
     }
-}
 
-impl Terminal {
     /// Highlight a line of code.
     pub fn highlight_line(&self, code: &str, highlighter: &mut HighlightLines) -> String {
         let ranges = highlighter.highlight_line(code, &self.syntaxes).unwrap();
@@ -112,13 +136,29 @@ impl Terminal {
     }
 
     /// Get light/dark mode specific theme.
-    pub fn get_theme() -> &'static str {
-        "Monokai Extended"
-        // Lioness100/guess-that-lang#5
-        // match dark_light::detect() {
-        //     Mode::Dark => "Monokai Extended",
-        //     Mode::Light => "Monakai Extended Light",
-        // }
+    pub fn get_theme() -> anyhow::Result<&'static str> {
+        if let Ok(theme) = ThemeStyle::try_from(ARGS.theme.clone()) {
+            confy::store(
+                "guess-that-lang",
+                Config {
+                    theme: Some(theme.clone()),
+                    ..CONFIG.clone()
+                },
+            )?;
+
+            Ok(theme.into())
+        } else if let Some(theme) = CONFIG.theme.clone() {
+            Ok(theme.into())
+        } else {
+            #[cfg(target_os = "macos")]
+            {
+                if !macos_dark_mode_active() {
+                    Ok(ThemeStyle::Light.into())
+                }
+            }
+
+            Ok(ThemeStyle::Dark.into())
+        }
     }
 
     /// Cuts the code horizontally after 10 non empty lines and vertically after
@@ -400,5 +440,15 @@ impl Terminal {
     /// Get terminal width
     pub fn width() -> usize {
         terminal::size().map(|(width, _)| width as usize).unwrap()
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_dark_mode_active() -> bool {
+    let mut defaults_cmd = std::process::Command::new("defaults");
+    defaults_cmd.args(&["read", "-globalDomain", "AppleInterfaceStyle"]);
+    match defaults_cmd.output() {
+        Ok(output) => output.stdout == b"Dark\n",
+        Err(_) => true,
     }
 }
