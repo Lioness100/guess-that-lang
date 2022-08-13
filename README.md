@@ -54,6 +54,10 @@ guess-that-lang --wait 5000 # or -w
 
 # Reveal lines in random order instead of top to bottom. (Default: false)
 guess-that-lang --shuffle # or -s
+
+# Theme overrides will be stored in a config file so you only need to input them once.
+guess-that-lang --theme dark
+guess-that-lang --theme light
 ```
 
 ## Acknowledgements
