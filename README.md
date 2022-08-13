@@ -18,21 +18,41 @@ Survey](https://survey.stackoverflow.co/2022/#most-popular-technologies-language
 
 ## Installation
 
-### Building From Source
+<details>
+<summary>Using Prebuilt Binaries</summary>
 
-> ⚠️ Rust 1.63.0 or higher is required to build the binary. Rust can be updated
-> with `rustup update`.
+- <details>
+  <summary>With Bash</summary>
 
-Install [Rust](https://www.rust-lang.org/tools/install) using the recommended rustup installation method and then run:
+  ```sh
+  curl -fsSL "https://bina.egoist.dev/Lioness100/guess-that-lang?dir=.cargo/bin" | sh
+  ```
+
+  </details>
+
+- <details>
+  <summary>Manual Installation</summary>
+
+  Prebuilt binaries are available for Windows, Linux, and macOS and can be found
+  attached to the [latest release](https://github.com/Lioness100/guess-that-lang/releases/latest).
+
+  </details>
+
+</details>
+<details>
+<summary>Building From Source</summary>
+
+> ⚠️ Rust 1.63.0 or higher is required to build. Rust can be updated with `rustup update`.
+
+Install [Rust](https://www.rust-lang.org/tools/install) and then run:
 
 ```sh
 cargo install guess-that-lang
 ```
 
-### Using Prebuilt Binaries
+</details>
 
-Prebuilt binaries are available for Windows, Linux, and macOS and can be found
-attached to the [latest release](https://github.com/Lioness100/guess-that-lang/releases/latest).
+<br />
 
 ## Usage
 
