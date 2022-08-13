@@ -7,7 +7,7 @@ use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
 use ureq::{Agent, AgentBuilder, Response};
 
-use crate::{game::LANGUAGES, Config};
+use crate::{game::LANGUAGES, Config, ARGS, CONFIG};
 
 pub const GITHUB_BASE_URL: &str = "https://api.github.com";
 
@@ -70,34 +70,42 @@ impl Default for Github {
 }
 
 impl Github {
-    pub fn new(config: &mut Config, token: &Option<String>) -> anyhow::Result<Self> {
+    pub fn new() -> anyhow::Result<Self> {
         let mut github = Self::default();
-        github.token = github.apply_token(config, token)?;
+        github.token = github.apply_token()?;
 
         Ok(github)
     }
 
-    pub fn apply_token(
-        &mut self,
-        config: &mut Config,
-        token_option: &Option<String>,
-    ) -> anyhow::Result<Option<String>> {
-        if let Some(token) = token_option {
+    pub fn apply_token(&mut self) -> anyhow::Result<Option<String>> {
+        if let Some(token) = &ARGS.token {
             Github::test_token_structure(token)?;
             self.validate_token(token)
                 .context("Invalid personal access token")?;
 
-            config.token = token.clone();
-            confy::store("guess-that-lang", config)?;
+            confy::store(
+                "guess-that-lang",
+                Config {
+                    token: token.clone(),
+                    high_score: CONFIG.high_score,
+                },
+            )?;
+
             return Ok(Some(token.to_string()));
-        } else if !config.token.is_empty() {
-            let result = self.validate_token(&config.token);
+        } else if !CONFIG.token.is_empty() {
+            let result = self.validate_token(&CONFIG.token);
             if result.is_err() {
-                config.token = String::new();
-                confy::store("guess-that-lang", config)?;
+                confy::store(
+                    "guess-that-lang",
+                    Config {
+                        token: String::new(),
+                        high_score: CONFIG.high_score,
+                    },
+                )?;
+
                 result.context("The token found in the config is invalid, so it has been removed. Please try again.")?;
             } else {
-                return Ok(Some(config.token.clone()));
+                return Ok(Some(CONFIG.token.clone()));
             }
         }
 
@@ -182,9 +190,6 @@ mod tests {
     #[allow(dead_code)]
     #[ignore]
     fn invalid_token() {
-        assert!(Github::new(&mut Config::default(), &None)
-            .unwrap()
-            .validate_token("invalid")
-            .is_err());
+        assert!(Github::new().unwrap().validate_token("invalid").is_err());
     }
 }

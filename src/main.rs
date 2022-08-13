@@ -24,6 +24,7 @@
 use std::ops::ControlFlow;
 
 use argh::FromArgs;
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 pub mod game;
@@ -55,12 +56,14 @@ pub struct Config {
     token: String,
 }
 
-pub fn main() -> anyhow::Result<()> {
-    let args: Args = argh::from_env();
-    let mut config: Config = confy::load("guess-that-lang")?;
+lazy_static! {
+    pub static ref ARGS: Args = argh::from_env();
+    pub static ref CONFIG: Config = confy::load("guess-that-lang").unwrap();
+}
 
-    let client = Github::new(&mut config, &args.token)?;
-    let mut game = Game::new(config, client, args);
+pub fn main() -> anyhow::Result<()> {
+    let client = Github::new()?;
+    let mut game = Game::new(client);
 
     loop {
         let result = game.start_new_round()?;

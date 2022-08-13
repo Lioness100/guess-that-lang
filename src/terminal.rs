@@ -24,7 +24,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::Print,
-    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
 // Lioness100/guess-that-lang#5
@@ -37,7 +37,7 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::{game::PROMPT, Args, Config};
+use crate::{game::PROMPT, ARGS, CONFIG};
 
 pub struct Terminal {
     pub syntaxes: SyntaxSet,
@@ -156,20 +156,19 @@ impl Terminal {
     /// Print the base table and all elements inside, including the code in dot form.
     pub fn print_round_info(
         &self,
-        config: &Config,
-        points: u32,
         options: &[&str],
         code_lines: impl Iterator<Item = (usize, String)>,
         width: &usize,
+        total_points: u32,
     ) {
         let pipe = Color::White.dimmed().paint("│");
 
         let points = format!(
             "{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}",
             Color::White.bold().paint("High Score: "),
-            Color::Purple.paint(config.high_score.to_string()),
+            Color::Purple.paint(CONFIG.high_score.to_string()),
             Color::White.bold().paint("Total Points: "),
-            Color::Cyan.paint(points.to_string()),
+            Color::Cyan.paint(total_points.to_string()),
             Color::White.bold().paint("Available Points: "),
             Color::RGB(0, 255, 0).paint("100"),
             padding = " ".repeat(7),
@@ -222,7 +221,6 @@ impl Terminal {
         code_lines: impl Iterator<Item = (usize, String)>,
         extension: &str,
         available_points: &Mutex<f32>,
-        args: &Args,
         receiver: Receiver<()>,
     ) {
         let syntax = self
@@ -232,7 +230,7 @@ impl Terminal {
 
         let mut highlighter = HighlightLines::new(syntax, &self.theme);
 
-        let iter: Box<dyn Iterator<Item = (usize, String)>> = if args.shuffle {
+        let iter: Box<dyn Iterator<Item = (usize, String)>> = if ARGS.shuffle {
             let mut code_lines_vec = code_lines.collect::<Vec<_>>();
             code_lines_vec.shuffle(&mut thread_rng());
 
@@ -249,7 +247,7 @@ impl Terminal {
                 continue;
             }
 
-            let millis = if is_first_line { args.wait } else { 1500 };
+            let millis = if is_first_line { ARGS.wait } else { 1500 };
             is_first_line = false;
 
             thread::sleep(Duration::from_millis(millis));
@@ -402,5 +400,10 @@ impl Terminal {
     /// start of each round.
     pub fn clear_screen(&self) {
         execute!(self.stdout.lock(), Clear(ClearType::All), MoveTo(0, 0)).unwrap();
+    }
+
+    /// Get terminal width
+    pub fn width() -> usize {
+        terminal::size().map(|(width, _)| width as usize).unwrap()
     }
 }

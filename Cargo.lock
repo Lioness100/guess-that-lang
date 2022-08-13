@@ -246,6 +246,7 @@ dependencies = [
  "argh",
  "confy",
  "crossterm",
+ "lazy_static",
  "rand",
  "regex",
  "serde",

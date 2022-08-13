@@ -1,6 +1,6 @@
 use std::{
     ops::ControlFlow,
-    sync::{mpsc, Mutex},
+    sync::{mpsc::channel, Mutex},
     thread,
     time::Duration,
 };
@@ -9,14 +9,14 @@ use ansi_term::Color;
 use crossterm::{
     cursor::Show,
     execute,
-    terminal::{self, disable_raw_mode, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, LeaveAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::{
     github::{GistData, Github},
     terminal::Terminal,
-    Args, Config,
+    Config, CONFIG,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -54,10 +54,8 @@ pub const LANGUAGES: [&str; 25] = [
 
 /// The all-encompassing game struct.
 pub struct Game {
-    pub args: Args,
     pub points: u32,
     pub terminal: Terminal,
-    pub config: Config,
     pub client: Github,
     pub gist_data: Vec<GistData>,
 }
@@ -74,13 +72,11 @@ impl Drop for Game {
             Color::Green.bold().paint(self.points.to_string())
         );
 
-        if self.points > self.config.high_score {
-            if self.config.high_score > 0 {
+        if self.points > CONFIG.high_score {
+            if CONFIG.high_score > 0 {
                 println!(
                     "You beat your high score of {}!\n\nShare it: {}",
-                    Color::Purple
-                        .bold()
-                        .paint(self.config.high_score.to_string()),
+                    Color::Purple.bold().paint(CONFIG.high_score.to_string()),
                     Color::Cyan
                         .bold()
                         .paint("https://github.com/Lioness100/guess-that-lang/discussions/6")
@@ -89,7 +85,7 @@ impl Drop for Game {
 
             let new_config = Config {
                 high_score: self.points,
-                token: self.config.token.clone(),
+                token: CONFIG.token.clone(),
             };
 
             let _config = confy::store("guess-that-lang", new_config);
@@ -99,14 +95,12 @@ impl Drop for Game {
 
 impl Game {
     /// Create new game.
-    pub fn new(config: Config, client: Github, args: Args) -> Self {
+    pub fn new(client: Github) -> Self {
         Self {
             points: 0,
             terminal: Terminal::default(),
             gist_data: Vec::new(),
             client,
-            config,
-            args,
         }
     }
 
@@ -139,18 +133,17 @@ impl Game {
         let code = self.client.get_gist(&gist.url)?;
 
         let options = Self::get_options(&gist.language);
-        let width = terminal::size().map(|(width, _)| width as usize).unwrap();
+        let width = Terminal::width();
 
         self.terminal.print_round_info(
-            &self.config,
-            self.points,
             &options,
             Terminal::trim_code(&code, &width),
             &width,
+            self.points,
         );
 
         let available_points = Mutex::new(100.0);
-        let (sender, receiver) = mpsc::channel();
+        let (sender, receiver) = channel();
 
         // [`Terminal::start_showing_code`] and [`Terminal::read_input_char`]
         // both create blocking loops, so they have to be used in separate threads.
@@ -160,7 +153,6 @@ impl Game {
                     Terminal::trim_code(&code, &width),
                     &gist.extension,
                     &available_points,
-                    &self.args,
                     receiver,
                 );
             });
