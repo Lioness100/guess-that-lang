@@ -2,11 +2,7 @@ use std::{
     env,
     io::{stdout, Stdout, Write},
     ops::ControlFlow,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Mutex,
-    },
-    thread,
+    sync::{Arc, Condvar, Mutex},
     time::Duration,
 };
 
@@ -221,7 +217,7 @@ impl Terminal {
         code_lines: impl Iterator<Item = (usize, String)>,
         extension: &str,
         available_points: &Mutex<f32>,
-        receiver: Receiver<()>,
+        pair: Arc<(Mutex<bool>, Condvar)>,
     ) {
         let syntax = self
             .syntaxes
@@ -242,6 +238,8 @@ impl Terminal {
         // This has to be made a variable as opposed to just checking if idx ==
         // 0 because the lines could be shuffled.
         let mut is_first_line = true;
+        let (lock, cvar) = &*pair;
+
         for (idx, line) in iter {
             if line == "\n" {
                 continue;
@@ -250,11 +248,13 @@ impl Terminal {
             let millis = if is_first_line { ARGS.wait } else { 1500 };
             is_first_line = false;
 
-            thread::sleep(Duration::from_millis(millis));
+            let (finished, _) = cvar
+                .wait_timeout(lock.lock().unwrap(), Duration::from_millis(millis))
+                .unwrap();
 
             // The receiver will receive a message when the user has selected an
             // option, at which point the code should not be updated further.
-            if receiver.try_recv().is_ok() {
+            if *finished {
                 break;
             }
 
@@ -295,17 +295,12 @@ impl Terminal {
     /// Responds to input from the user (1 | 2 | 3 | 4).
     pub fn process_input(
         &self,
-        sender: Sender<()>,
         num: u32,
         options: &[&str],
         correct_language: &str,
         available_points: &Mutex<f32>,
         total_points: &mut u32,
     ) -> anyhow::Result<ControlFlow<()>> {
-        // Send a message which results in [`Terminal::start_showing_code`] to
-        // not show the next line.
-        let _ = sender.send(());
-
         // Locking the stdout will let any work that's being done in
         // [`Terminal::start_showing_code`] to finish before we continue.
         let mut stdout = self.stdout.lock();

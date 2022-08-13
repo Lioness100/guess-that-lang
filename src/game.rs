@@ -1,6 +1,6 @@
 use std::{
     ops::ControlFlow,
-    sync::{mpsc::channel, Mutex},
+    sync::{Arc, Condvar, Mutex},
     thread,
     time::Duration,
 };
@@ -143,7 +143,9 @@ impl Game {
         );
 
         let available_points = Mutex::new(100.0);
-        let (sender, receiver) = channel();
+
+        let receiving_pair = Arc::new((Mutex::new(false), Condvar::new()));
+        let notifying_pair = Arc::clone(&receiving_pair);
 
         // [`Terminal::start_showing_code`] and [`Terminal::read_input_char`]
         // both create blocking loops, so they have to be used in separate threads.
@@ -153,19 +155,25 @@ impl Game {
                     Terminal::trim_code(&code, &width),
                     &gist.extension,
                     &available_points,
-                    receiver,
+                    receiving_pair,
                 );
             });
 
             let input = s.spawn(|| {
-                let char = Terminal::read_input_char();
-                if char == 'q' || (char == 'c') {
-                    sender.send(()).unwrap();
+                let input = Terminal::read_input_char();
+
+                let (lock, cvar) = &*notifying_pair;
+                let mut finished = lock.lock().unwrap();
+                *finished = true;
+
+                // Notifies [`Terminal::start_showing_code`] to not show the next line.
+                cvar.notify_one();
+
+                if input == 'q' || (input == 'c') {
                     Ok(ControlFlow::Break(()))
                 } else {
                     let result = self.terminal.process_input(
-                        sender,
-                        char.to_digit(10).unwrap(),
+                        input.to_digit(10).unwrap(),
                         &options,
                         &gist.language,
                         &available_points,
