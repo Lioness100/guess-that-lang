@@ -2,7 +2,7 @@ use std::{
     env,
     io::{stdout, Stdout, Write},
     ops::ControlFlow,
-    sync::{Arc, Condvar, Mutex},
+    sync::{mpsc::Receiver, Mutex},
     time::Duration,
 };
 
@@ -20,7 +20,7 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::{Print, Stylize},
-    terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
+    terminal::{self, enable_raw_mode, EnterAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
@@ -161,7 +161,7 @@ impl Terminal {
             #[cfg(target_os = "macos")]
             {
                 if !macos_dark_mode_active() {
-                    Ok(ThemeStyle::Light.into())
+                    return Ok(ThemeStyle::Light.into());
                 }
             }
 
@@ -310,7 +310,7 @@ impl Terminal {
         &self,
         mut code_lines: Vec<(String, String)>,
         available_points: &Mutex<f32>,
-        pair: Arc<(Mutex<bool>, Condvar)>,
+        receiver: Receiver<()>,
     ) {
         if ARGS.shuffle {
             code_lines.shuffle(&mut thread_rng());
@@ -319,7 +319,6 @@ impl Terminal {
         // This has to be made a variable as opposed to just checking if idx ==
         // 0 because the lines could be shuffled.
         let mut is_first_line = true;
-        let (lock, cvar) = &*pair;
 
         for (idx, (raw, line)) in code_lines.iter().enumerate() {
             if raw == "\n" {
@@ -329,13 +328,9 @@ impl Terminal {
             let millis = if is_first_line { ARGS.wait } else { 1500 };
             is_first_line = false;
 
-            let (finished, _) = cvar
-                .wait_timeout(lock.lock().unwrap(), Duration::from_millis(millis))
-                .unwrap();
-
-            // The receiver will receive a message when the user has selected an
+            // The receiver will be notified when the user has selected an
             // option, at which point the code should not be updated further.
-            if *finished {
+            if receiver.recv_timeout(Duration::from_millis(millis)).is_ok() {
                 break;
             }
 

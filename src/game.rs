@@ -3,7 +3,7 @@ use std::{
     ops::ControlFlow,
     sync::{
         mpsc::{self, Receiver},
-        Arc, Condvar, Mutex,
+        Mutex,
     },
     thread,
     time::Duration,
@@ -132,7 +132,7 @@ impl Game {
     /// Start a new round, which is called in the main function with a for loop.
     pub fn start_new_round(
         &mut self,
-        reciever: Option<Receiver<()>>,
+        preloader: Option<Receiver<()>>,
     ) -> anyhow::Result<ControlFlow<()>> {
         if self.gist_data.is_empty() {
             self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
@@ -146,13 +146,13 @@ impl Game {
         let code = match self.terminal.parse_code(&text, highlighter, &width) {
             Some(code) => code,
             // If there is no valid code, skip this round via recursion.
-            None => return self.start_new_round(reciever),
+            None => return self.start_new_round(preloader),
         };
 
         let options = Self::get_options(&gist.language);
 
-        if let Some(reciever) = reciever {
-            reciever.recv().unwrap();
+        if let Some(preloader) = preloader {
+            preloader.recv().unwrap();
         }
 
         self.terminal
@@ -160,26 +160,23 @@ impl Game {
 
         let available_points = Mutex::new(100.0);
 
-        let receiving_pair = Arc::new((Mutex::new(false), Condvar::new()));
-        let notifying_pair = Arc::clone(&receiving_pair);
+        let (sender, receiver) = mpsc::channel();
 
         // [`Terminal::start_showing_code`] and [`Terminal::read_input_char`]
         // both create blocking loops, so they have to be used in separate threads.
         thread::scope(|s| {
             let display = s.spawn(|| {
                 self.terminal
-                    .start_showing_code(code, &available_points, receiving_pair);
+                    .start_showing_code(code, &available_points, receiver);
             });
 
             let input = s.spawn(|| {
                 let input = Terminal::read_input_char();
 
-                let (lock, cvar) = &*notifying_pair;
-                let mut finished = lock.lock().unwrap();
-                *finished = true;
-
-                // Notifies [`Terminal::start_showing_code`] to not show the next line.
-                cvar.notify_one();
+                // Notifies [`Terminal::start_showing_code`] to not show the
+                // next line.
+                let sender = sender;
+                let _sent = sender.send(());
 
                 if input == 'q' || input == 'c' {
                     Ok(ControlFlow::Break(()))
@@ -208,6 +205,8 @@ impl Game {
         })
     }
 
+    // Wait 1.5 seconds for the user to visually process they got the right
+    // answer while the next round is preloading, then start the next round.
     pub fn start_next_round(&mut self) -> anyhow::Result<ControlFlow<()>> {
         let (sender, receiver) = mpsc::channel();
 
