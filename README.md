@@ -28,8 +28,10 @@ experience more enjoyable.
   <summary>With Bash</summary>
 
   ```sh
-  curl -fsSL "https://bina.egoist.dev/Lioness100/guess-that-lang?dir=.cargo/bin" | sh
+  curl -fsSL "https://bina.egoist.dev/Lioness100/guess-that-lang" | sh
   ```
+
+  > Using [Bina](https://bina.egoist.dev/)
 
   </details>
 
