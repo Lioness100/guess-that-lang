@@ -469,12 +469,6 @@ impl Terminal {
         )
     }
 
-    /// Clear the screen and move to the top right corner. This is done at the
-    /// start of each round.
-    pub fn clear_screen(&self) {
-        execute!(self.stdout.lock(), Clear(ClearType::All), MoveTo(0, 0)).unwrap();
-    }
-
     /// Get terminal width
     pub fn width() -> usize {
         terminal::size().map(|(width, _)| width as usize).unwrap()

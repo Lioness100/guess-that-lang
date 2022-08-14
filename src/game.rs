@@ -1,15 +1,19 @@
 use std::{
+    io::stdout,
     ops::ControlFlow,
-    sync::{Arc, Condvar, Mutex},
+    sync::{
+        mpsc::{self, Receiver},
+        Arc, Condvar, Mutex,
+    },
     thread,
     time::Duration,
 };
 
 use crossterm::{
-    cursor::Show,
+    cursor::{MoveTo, Show},
     execute,
     style::Stylize,
-    terminal::{disable_raw_mode, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, Clear, ClearType, LeaveAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
 
@@ -126,7 +130,10 @@ impl Game {
     }
 
     /// Start a new round, which is called in the main function with a for loop.
-    pub fn start_new_round(&mut self) -> anyhow::Result<ControlFlow<()>> {
+    pub fn start_new_round(
+        &mut self,
+        reciever: Option<Receiver<()>>,
+    ) -> anyhow::Result<ControlFlow<()>> {
         if self.gist_data.is_empty() {
             self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
         }
@@ -139,10 +146,14 @@ impl Game {
         let code = match self.terminal.parse_code(&text, highlighter, &width) {
             Some(code) => code,
             // If there is no valid code, skip this round via recursion.
-            None => return self.start_new_round(),
+            None => return self.start_new_round(reciever),
         };
 
         let options = Self::get_options(&gist.language);
+
+        if let Some(reciever) = reciever {
+            reciever.recv().unwrap();
+        }
 
         self.terminal
             .print_round_info(&options, &code, &width, self.points);
@@ -170,7 +181,7 @@ impl Game {
                 // Notifies [`Terminal::start_showing_code`] to not show the next line.
                 cvar.notify_one();
 
-                if input == 'q' || (input == 'c') {
+                if input == 'q' || input == 'c' {
                     Ok(ControlFlow::Break(()))
                 } else {
                     let result = self.terminal.process_input(
@@ -179,16 +190,39 @@ impl Game {
                         &gist.language,
                         &available_points,
                         &mut self.points,
-                    );
+                    )?;
 
-                    // Give the user 1.5 seconds to register the result.
-                    thread::sleep(Duration::from_millis(1500));
-                    result
+                    // Let the user visually process the result. If they got it
+                    // correct, the timer is set after a thread is spawned to
+                    // preload the next round's gist.
+                    if result == ControlFlow::Break(()) {
+                        thread::sleep(Duration::from_millis(1500));
+                    }
+
+                    Ok(result)
                 }
             });
 
             display.join().unwrap();
             input.join().unwrap()
+        })
+    }
+
+    pub fn start_next_round(&mut self) -> anyhow::Result<ControlFlow<()>> {
+        let (sender, receiver) = mpsc::channel();
+
+        thread::scope(|s| {
+            let handle = s.spawn(|| self.start_new_round(Some(receiver)));
+
+            thread::sleep(Duration::from_millis(1500));
+
+            // Clear the screen and move to the top right corner. This is not
+            // a method of [`Terminal`] because it would take a lot of work to
+            // let the borrow checker let me use `self` again.
+            execute!(stdout().lock(), Clear(ClearType::All), MoveTo(0, 0)).unwrap();
+            sender.send(()).unwrap();
+
+            handle.join().unwrap()
         })
     }
 }

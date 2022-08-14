@@ -70,12 +70,10 @@ pub fn main() -> anyhow::Result<()> {
     let client = Github::new()?;
     let mut game = Game::new(client)?;
 
-    loop {
-        let result = game.start_new_round()?;
-        match result {
-            ControlFlow::Continue(_) => game.terminal.clear_screen(),
-            ControlFlow::Break(_) => break,
-        };
+    let mut result = game.start_new_round(None)?;
+
+    while let ControlFlow::Continue(_) = result {
+        result = game.start_next_round()?;
     }
 
     Ok(())
