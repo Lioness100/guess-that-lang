@@ -5,10 +5,10 @@ use std::{
     time::Duration,
 };
 
-use ansi_term::Color;
 use crossterm::{
     cursor::Show,
     execute,
+    style::Stylize,
     terminal::{disable_raw_mode, LeaveAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -69,17 +69,17 @@ impl Drop for Game {
 
         println!(
             "\nYou scored {} points!",
-            Color::Green.bold().paint(self.points.to_string())
+            self.points.to_string().green().bold()
         );
 
         if self.points > CONFIG.high_score {
             if CONFIG.high_score > 0 {
                 println!(
                     "You beat your high score of {}!\n\nShare it: {}",
-                    Color::Purple.bold().paint(CONFIG.high_score.to_string()),
-                    Color::Cyan
+                    CONFIG.high_score.to_string().magenta().bold(),
+                    "https://github.com/Lioness100/guess-that-lang/discussions/6"
+                        .cyan()
                         .bold()
-                        .paint("https://github.com/Lioness100/guess-that-lang/discussions/6")
                 );
             }
 

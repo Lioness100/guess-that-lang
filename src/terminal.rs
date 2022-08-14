@@ -19,7 +19,7 @@ use crossterm::{
     cursor::{Hide, MoveTo, MoveToColumn, MoveUp, RestorePosition, SavePosition},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
-    style::Print,
+    style::{Print, Stylize},
     terminal::{self, enable_raw_mode, Clear, ClearType, EnterAlternateScreen},
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -241,15 +241,15 @@ impl Terminal {
         width: &usize,
         total_points: u32,
     ) {
-        let pipe = Color::White.dimmed().paint("│");
+        let pipe = "│".white().dim();
 
         let points = format!(
             "{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}\r\n{padding}{pipe} {}{}",
-            Color::White.bold().paint("High Score: "),
-            Color::Purple.paint(CONFIG.high_score.to_string()),
-            Color::White.bold().paint("Total Points: "),
-            Color::Cyan.paint(total_points.to_string()),
-            Color::White.bold().paint("Available Points: "),
+            "High Score: ".bold(),
+            CONFIG.high_score.to_string().magenta(),
+            "Total Points: ".bold(),
+            total_points.to_string().cyan(),
+            "Available Points: ".bold(),
             Color::RGB(0, 255, 0).paint("100"),
             padding = " ".repeat(7),
         );
@@ -258,10 +258,9 @@ impl Terminal {
         let line_separator_end = "─".repeat(width - 8);
 
         let [top, mid, bottom] = ["┬", "┼", "┴"].map(|char| {
-            Color::White
-                .dimmed()
-                .paint(line_separator_start.clone() + char + &line_separator_end)
-                .to_string()
+            (line_separator_start.clone() + char + &line_separator_end)
+                .white()
+                .dim()
         });
 
         let dotted_code = code_lines
@@ -403,10 +402,7 @@ impl Terminal {
 
         let correct_option_text = Self::format_option(
             &(correct_option_idx + 1).to_string(),
-            &Color::Green
-                .bold()
-                .paint(correct_option_name_text)
-                .to_string(),
+            &correct_option_name_text.green().bold().to_string(),
         );
 
         queue!(
@@ -468,8 +464,8 @@ impl Terminal {
         format!(
             "{padding}[{key}] {name}",
             padding = " ".repeat(5),
-            key = Color::White.bold().paint(key),
-            name = Color::White.paint(name)
+            key = key.bold(),
+            name = name
         )
     }
 
