@@ -16,6 +16,9 @@ Developer
 Survey](https://survey.stackoverflow.co/2022/#most-popular-technologies-language).
 <sub>*VBA is replaced with Dockerfile</sub>
 
+The code is then processed in a number of ways to make the
+experience more enjoyable.
+
 ## Installation
 
 <details>

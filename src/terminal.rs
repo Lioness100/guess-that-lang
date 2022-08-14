@@ -11,7 +11,7 @@ use ansi_term::enable_ansi_support;
 
 use ansi_colours::ansi256_from_rgb;
 use ansi_term::{
-    ANSIGenericStrings,
+    ANSIStrings,
     Color::{self, Fixed, RGB},
 };
 use anyhow::Context;
@@ -93,16 +93,24 @@ impl Terminal {
     }
 
     /// Highlight a line of code.
-    pub fn highlight_line(&self, code: &str, highlighter: &mut HighlightLines) -> String {
-        let ranges = highlighter.highlight_line(code, &self.syntaxes).unwrap();
+    pub fn highlight_line(&self, code: String, highlighter: &mut HighlightLines) -> Option<String> {
+        let ranges = highlighter.highlight_line(&code, &self.syntaxes).unwrap();
         let mut colorized = Vec::with_capacity(ranges.len());
 
         for (style, component) in ranges {
             let color = Self::to_ansi_color(style.foreground, self.is_truecolor);
+
+            // This color represents comments. If the line includes a comment,
+            // it should be excluded from the output so the user can look at
+            // actual code.
+            if color == Color::RGB(117, 113, 94) {
+                return None;
+            };
+
             colorized.push(color.paint(component));
         }
 
-        ANSIGenericStrings(&colorized).to_string()
+        Some(ANSIStrings(&colorized).to_string())
     }
 
     /// Converts [`syntect::highlighting::Color`] to [`ansi_term::Color`]. The
@@ -161,17 +169,33 @@ impl Terminal {
         }
     }
 
-    /// Cuts the code horizontally after 10 non empty lines and vertically after
-    /// it exceeds the terminal width. Returns an iterator (with indeces for
-    /// line numbers). This is used for both [`Terminal::print_round_info`] and
-    /// [`Terminal::start_showing_code`].
-    pub fn trim_code<'a>(
-        code: &'a str,
-        width: &'a usize,
-    ) -> impl Iterator<Item = (usize, String)> + 'a {
+    /// Parses the code in a number of ways:
+    /// - Cuts the code off after in exceeds the terminal width, replacing the
+    ///   last three characters with "..."
+    /// - Cuts out all comments
+    /// - Cuts the code off after 10 non-empty lines
+    /// - Removes all but the first of all consecutive newlines
+    /// - Trims leading and trailing newlines
+    pub fn parse_code(
+        &self,
+        code: &str,
+        mut highlighter: HighlightLines,
+        width: &usize,
+    ) -> Option<Vec<(String, String)>> {
         let mut taken_lines: u8 = 0;
-        LinesWithEndings::from(code)
-            .take_while(move |&line| {
+
+        let mut lines: Vec<_> = LinesWithEndings::from(code)
+            .filter_map(move |line| {
+                let trimmed = if line.len() + 9 > *width {
+                    format!("{}...", &line[..*width - 12])
+                } else {
+                    line.to_string()
+                };
+
+                self.highlight_line(trimmed.clone(), &mut highlighter)
+                    .map(|highlighted| (trimmed, highlighted))
+            })
+            .take_while(move |(line, _)| {
                 if line == "\n" {
                     true
                 } else {
@@ -179,21 +203,41 @@ impl Terminal {
                     taken_lines <= 10
                 }
             })
-            .map(|line| {
-                if line.len() + 9 > *width {
-                    format!("{}...", &line[..*width - 12])
-                } else {
-                    line.to_string()
-                }
-            })
-            .enumerate()
+            .collect();
+
+        lines.dedup_by(|(a, _), (b, _)| a == "\n" && b == "\n");
+
+        let count_end = lines.len()
+            - lines
+                .iter()
+                .rev()
+                .take_while(|&(line, _)| line == "\n")
+                .count();
+
+        lines.truncate(count_end);
+
+        if lines.is_empty() {
+            return None;
+        }
+
+        let count_start = lines.iter().take_while(|&(line, _)| line == "\n").count();
+
+        if count_start != 0 {
+            for i in count_start..lines.len() {
+                lines.swap(i, i - count_start);
+            }
+
+            lines.truncate(lines.len() - count_start);
+        }
+
+        Some(lines)
     }
 
     /// Print the base table and all elements inside, including the code in dot form.
     pub fn print_round_info(
         &self,
         options: &[&str],
-        code_lines: impl Iterator<Item = (usize, String)>,
+        code_lines: &[(String, String)],
         width: &usize,
         total_points: u32,
     ) {
@@ -221,7 +265,9 @@ impl Terminal {
         });
 
         let dotted_code = code_lines
-            .map(|(idx, line)| {
+            .iter()
+            .enumerate()
+            .map(|(idx, (line, _))| {
                 let dots: String = line
                     .chars()
                     // Replace all non whitespace characters with dots.
@@ -250,29 +296,25 @@ impl Terminal {
         execute!(self.stdout.lock(), Print(text)).unwrap();
     }
 
-    /// Create a loop that will reveal a line of code and decrease
-    /// `available_points` every 1.5 seconds.
-    pub fn start_showing_code(
-        &self,
-        code_lines: impl Iterator<Item = (usize, String)>,
-        extension: &str,
-        available_points: &Mutex<f32>,
-        pair: Arc<(Mutex<bool>, Condvar)>,
-    ) {
+    pub fn get_highlighter(&self, extension: &str) -> HighlightLines {
         let syntax = self
             .syntaxes
             .find_syntax_by_extension(extension)
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
 
-        let mut highlighter = HighlightLines::new(syntax, &self.theme);
+        HighlightLines::new(syntax, &self.theme)
+    }
 
-        let iter: Box<dyn Iterator<Item = (usize, String)>> = if ARGS.shuffle {
-            let mut code_lines_vec = code_lines.collect::<Vec<_>>();
-            code_lines_vec.shuffle(&mut thread_rng());
-
-            Box::new(code_lines_vec.into_iter())
-        } else {
-            Box::new(code_lines)
+    /// Create a loop that will reveal a line of code and decrease
+    /// `available_points` every 1.5 seconds.
+    pub fn start_showing_code(
+        &self,
+        mut code_lines: Vec<(String, String)>,
+        available_points: &Mutex<f32>,
+        pair: Arc<(Mutex<bool>, Condvar)>,
+    ) {
+        if ARGS.shuffle {
+            code_lines.shuffle(&mut thread_rng());
         };
 
         // This has to be made a variable as opposed to just checking if idx ==
@@ -280,8 +322,8 @@ impl Terminal {
         let mut is_first_line = true;
         let (lock, cvar) = &*pair;
 
-        for (idx, line) in iter {
-            if line == "\n" {
+        for (idx, (raw, line)) in code_lines.iter().enumerate() {
+            if raw == "\n" {
                 continue;
             }
 
@@ -299,7 +341,6 @@ impl Terminal {
             }
 
             let mut stdout = self.stdout.lock();
-            let line = self.highlight_line(&line, &mut highlighter);
 
             // Move to the row index of the dotted code and replace it with the
             // real code.
@@ -333,6 +374,7 @@ impl Terminal {
     }
 
     /// Responds to input from the user (1 | 2 | 3 | 4).
+    #[allow(clippy::unnecessary_to_owned)]
     pub fn process_input(
         &self,
         num: u32,

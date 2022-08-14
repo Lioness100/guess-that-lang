@@ -26,13 +26,12 @@ use std::ops::ControlFlow;
 use argh::FromArgs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use terminal::ThemeStyle;
 
 pub mod game;
 pub mod github;
 pub mod terminal;
 
-use crate::{game::Game, github::Github};
+use crate::{game::Game, github::Github, terminal::ThemeStyle};
 
 /// CLI game to see how fast you can guess the language of a code block!
 #[derive(FromArgs)]

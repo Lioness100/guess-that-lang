@@ -96,10 +96,12 @@ impl Drop for Game {
 impl Game {
     /// Create new game.
     pub fn new(client: Github) -> anyhow::Result<Self> {
+        let terminal = Terminal::new()?;
+
         Ok(Self {
             points: 0,
-            terminal: Terminal::new()?,
-            gist_data: Vec::new(),
+            gist_data: client.get_gists(&terminal.syntaxes)?,
+            terminal,
             client,
         })
     }
@@ -130,17 +132,20 @@ impl Game {
         }
 
         let gist = self.gist_data.pop().unwrap();
-        let code = self.client.get_gist(&gist.url)?;
-
-        let options = Self::get_options(&gist.language);
+        let text = self.client.get_gist(&gist.url)?;
         let width = Terminal::width();
 
-        self.terminal.print_round_info(
-            &options,
-            Terminal::trim_code(&code, &width),
-            &width,
-            self.points,
-        );
+        let highlighter = self.terminal.get_highlighter(&gist.extension);
+        let code = match self.terminal.parse_code(&text, highlighter, &width) {
+            Some(code) => code,
+            // If there is no valid code, skip this round via recursion.
+            None => return self.start_new_round(),
+        };
+
+        let options = Self::get_options(&gist.language);
+
+        self.terminal
+            .print_round_info(&options, &code, &width, self.points);
 
         let available_points = Mutex::new(100.0);
 
@@ -151,12 +156,8 @@ impl Game {
         // both create blocking loops, so they have to be used in separate threads.
         thread::scope(|s| {
             let display = s.spawn(|| {
-                self.terminal.start_showing_code(
-                    Terminal::trim_code(&code, &width),
-                    &gist.extension,
-                    &available_points,
-                    receiving_pair,
-                );
+                self.terminal
+                    .start_showing_code(code, &available_points, receiving_pair);
             });
 
             let input = s.spawn(|| {
