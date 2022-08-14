@@ -24,3 +24,6 @@ regex = "1.6.0"
 serde = { version = "1.0.143", features = ["derive"] }
 syntect = { version = "5.0.0", default_features = false, features = ["parsing", "regex-onig"] }
 ureq = { version = "2.5.0", features = ["json"] }
+
+[dev-dependencies]
+indoc = "1.0.7"

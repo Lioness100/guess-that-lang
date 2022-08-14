@@ -81,8 +81,10 @@ impl Terminal {
 
         let mut stdout = stdout();
 
-        let _hide = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
-        let _raw = enable_raw_mode();
+        if !cfg!(test) {
+            let _hide = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
+            let _raw = enable_raw_mode();
+        }
 
         Ok(Self {
             syntaxes,
@@ -477,5 +479,102 @@ fn macos_dark_mode_active() -> bool {
     match defaults_cmd.output() {
         Ok(output) => output.stdout == b"Dark\n",
         Err(_) => true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indoc::indoc;
+    use lazy_static::lazy_static;
+
+    lazy_static! {
+        static ref TERMINAL: Terminal = Terminal::new().unwrap();
+    }
+
+    const WIDTH: &usize = &500;
+
+    fn parse_code(code: &str) -> Option<Vec<(String, String)>> {
+        TERMINAL.parse_code(code, TERMINAL.get_highlighter("rs"), WIDTH)
+    }
+
+    #[test]
+    fn cut_off_wide_code() {
+        let code = "_".repeat(WIDTH + 1);
+        let parsed = parse_code(&code).unwrap();
+
+        assert_eq!(
+            parsed[0].0,
+            "_".repeat(WIDTH - 3 - "   1   | ".len()) + "..."
+        );
+    }
+
+    #[test]
+    fn remove_comments() {
+        let code = indoc! {"
+            // Should be removed
+            /// Should be removed
+            //! Should be removed
+            /* Should be removed */
+            let x = 5; // Whole line should be removed
+            let y = 6;
+        "};
+
+        let parsed = parse_code(code).unwrap();
+        assert_eq!(parsed.len(), 1);
+    }
+
+    #[test]
+    fn cut_off_tall_code() {
+        let code = indoc! {"
+            Line 1
+
+            Line 2
+            Line 3
+
+            Line 4
+            Line 5
+            Line 6
+
+            Line 7
+            Line 8
+            Line 9
+            Line 10
+            Line 11
+            Line 12
+        "};
+
+        let parsed = parse_code(code).unwrap();
+        assert_eq!(parsed.len(), code.lines().count() - 2);
+    }
+
+    #[test]
+    fn remove_consecutive_duplicate_newlines() {
+        let code = indoc! {"
+            Line 1
+
+
+            Line 2
+
+
+            Line 3
+        "};
+
+        let parsed = parse_code(code).unwrap();
+        assert_eq!(parsed.len(), code.lines().count() - 2);
+    }
+
+    #[test]
+    fn trim_newlines() {
+        let code = indoc! {"
+
+
+            Line 1
+
+
+        "};
+
+        let parsed = parse_code(code).unwrap();
+        assert_eq!(parsed.len(), 1);
     }
 }
