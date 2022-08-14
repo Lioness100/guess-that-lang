@@ -161,7 +161,7 @@ impl Terminal {
             #[cfg(target_os = "macos")]
             {
                 if !macos_dark_mode_active() {
-                    Ok(ThemeStyle::Light.into())
+                    return Ok(ThemeStyle::Light.into());
                 }
             }
 
