@@ -126,9 +126,7 @@ impl Github {
         Ok(None)
     }
 
-    /// Test a Github personal access token via regex and return it if valid. The
-    /// second step of validation is [`validate_token`] which requires querying the
-    /// Github API asynchronously and thus can not be used with [`clap::value_parser`].
+    /// Test a Github personal access token via regex and return it if valid.
     pub fn test_token_structure(token: &str) -> Result<String> {
         if TOKEN_REGEX.is_match(token) {
             Ok(token.to_string())
