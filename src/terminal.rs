@@ -102,8 +102,9 @@ impl Terminal {
 
             // This color represents comments. If the line includes a comment,
             // it should be excluded from the output so the user can look at
-            // actual code.
-            if color == Color::RGB(117, 113, 94) {
+            // actual code. The second color is for bash specifically because it
+            // for some reason has a different comment color.
+            if matches!(color, Color::RGB(117, 113, 94) | Color::RGB(124, 120, 101)) {
                 return None;
             };
 
