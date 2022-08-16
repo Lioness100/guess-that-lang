@@ -310,10 +310,12 @@ impl Terminal {
     /// `available_points` every 1.5 seconds.
     pub fn start_showing_code(
         &self,
-        mut code_lines: Vec<(String, String)>,
+        code_lines: &[(String, String)],
         available_points: &Mutex<f32>,
         receiver: Receiver<()>,
     ) -> Result<()> {
+        let mut code_lines: Vec<_> = code_lines.iter().enumerate().collect();
+
         if ARGS.shuffle {
             code_lines.shuffle(&mut thread_rng());
         };
@@ -325,7 +327,7 @@ impl Terminal {
         // Consume receiver.
         let receiver = receiver;
 
-        for (idx, (raw, line)) in code_lines.iter().enumerate() {
+        for (idx, (raw, line)) in code_lines {
             if raw == "\n" {
                 continue;
             }
