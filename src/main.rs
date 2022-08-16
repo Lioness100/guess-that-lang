@@ -1,27 +1,13 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::pedantic)]
+#![warn(clippy::pedantic, clippy::cargo)]
 #![allow(
-    // Allowed to avoid breaking changes.
-    clippy::module_name_repetitions,
-    clippy::struct_excessive_bools,
-    clippy::unused_self,
-    // Allowed as they are too pedantic
     clippy::cast_possible_truncation,
-    clippy::unreadable_literal,
-    clippy::cast_possible_wrap,
-    clippy::wildcard_imports,
     clippy::cast_sign_loss,
-    clippy::too_many_lines,
-    clippy::doc_markdown,
-    clippy::cast_lossless,
-    clippy::must_use_candidate,
-    clippy::needless_pass_by_value,
-    // Document this later
     clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
+    clippy::missing_panics_doc
 )]
 
-use std::ops::ControlFlow;
+use std::{error::Error, ops::ControlFlow, result};
 
 use argh::FromArgs;
 use lazy_static::lazy_static;
@@ -32,6 +18,8 @@ pub mod github;
 pub mod terminal;
 
 use crate::{game::Game, github::Github, terminal::ThemeStyle};
+
+pub type Result<T> = result::Result<T, Box<dyn Error + Send + Sync>>;
 
 /// CLI game to see how fast you can guess the language of a code block!
 #[derive(FromArgs)]
@@ -66,7 +54,7 @@ lazy_static! {
     pub static ref CONFIG: Config = confy::load("guess-that-lang").unwrap();
 }
 
-pub fn main() -> anyhow::Result<()> {
+pub fn main() -> Result<()> {
     let client = Github::new()?;
     let mut game = Game::new(client)?;
 

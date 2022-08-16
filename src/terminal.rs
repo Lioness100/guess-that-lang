@@ -2,6 +2,7 @@ use std::{
     env,
     io::{stdout, Stdout, Write},
     ops::ControlFlow,
+    result,
     sync::{mpsc::Receiver, Mutex},
     time::Duration,
 };
@@ -14,7 +15,6 @@ use ansi_term::{
     ANSIStrings,
     Color::{self, Fixed, RGB},
 };
-use anyhow::Context;
 use crossterm::{
     cursor::{Hide, MoveTo, MoveToColumn, MoveUp, RestorePosition, SavePosition},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -32,7 +32,7 @@ use syntect::{
     util::LinesWithEndings,
 };
 
-use crate::{game::PROMPT, Config, ARGS, CONFIG};
+use crate::{game::PROMPT, Config, Result, ARGS, CONFIG};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ThemeStyle {
@@ -43,7 +43,7 @@ pub enum ThemeStyle {
 impl TryFrom<Option<String>> for ThemeStyle {
     type Error = ();
 
-    fn try_from(opt: Option<String>) -> Result<Self, Self::Error> {
+    fn try_from(opt: Option<String>) -> result::Result<Self, Self::Error> {
         match opt {
             Some(string) if string == "dark" => Ok(Self::Dark),
             Some(string) if string == "light" => Ok(Self::Light),
@@ -69,34 +69,32 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Result<Self> {
         #[cfg(windows)]
-        let _ansi = enable_ansi_support();
+        let _ = enable_ansi_support();
 
         let themes: ThemeSet = dumps::from_binary(include_bytes!("../assets/dumps/themes.dump"));
         let syntaxes: SyntaxSet =
-            dumps::from_uncompressed_data(include_bytes!("../assets/dumps/syntaxes.dump"))
-                .context("Failed to load syntaxes")
-                .unwrap();
+            dumps::from_uncompressed_data(include_bytes!("../assets/dumps/syntaxes.dump"))?;
 
         let mut stdout = stdout();
 
         if !cfg!(test) {
-            let _hide = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
+            let _clear = execute!(stdout, EnterAlternateScreen, Hide, MoveTo(0, 0));
             let _raw = enable_raw_mode();
         }
 
         Ok(Self {
             syntaxes,
             stdout,
-            theme: themes.themes[Terminal::get_theme()?].clone(),
-            is_truecolor: Terminal::is_truecolor(),
+            theme: themes.themes[Self::get_theme()?].clone(),
+            is_truecolor: Self::is_truecolor(),
         })
     }
 
     /// Highlight a line of code.
-    pub fn highlight_line(&self, code: String, highlighter: &mut HighlightLines) -> Option<String> {
-        let ranges = highlighter.highlight_line(&code, &self.syntaxes).unwrap();
+    pub fn highlight_line(&self, code: &str, highlighter: &mut HighlightLines) -> Option<String> {
+        let ranges = highlighter.highlight_line(code, &self.syntaxes).ok()?;
         let mut colorized = Vec::with_capacity(ranges.len());
 
         for (style, component) in ranges {
@@ -116,8 +114,9 @@ impl Terminal {
     }
 
     /// Converts [`syntect::highlighting::Color`] to [`ansi_term::Color`]. The
-    /// implementation is taken from https://github.com/sharkdp/bat and relevant
+    /// implementation is taken from <https://github.com/sharkdp/bat> and relevant
     /// explanations of this functions can be found there.
+    #[must_use]
     pub fn to_ansi_color(color: highlighting::Color, true_color: bool) -> ansi_term::Color {
         if color.a == 0 {
             match color.r {
@@ -139,14 +138,15 @@ impl Terminal {
     }
 
     /// Return true if the current running terminal support true color.
+    #[must_use]
     pub fn is_truecolor() -> bool {
         env::var("COLORTERM")
             .map(|colorterm| colorterm == "truecolor" || colorterm == "24bit")
-            .unwrap_or(false)
+            .unwrap_or_default()
     }
 
     /// Get light/dark mode specific theme.
-    pub fn get_theme() -> anyhow::Result<&'static str> {
+    pub fn get_theme() -> Result<&'static str> {
         if let Ok(theme) = ThemeStyle::try_from(ARGS.theme.clone()) {
             confy::store(
                 "guess-that-lang",
@@ -194,7 +194,7 @@ impl Terminal {
                     line.to_string()
                 };
 
-                self.highlight_line(trimmed.clone(), &mut highlighter)
+                self.highlight_line(&trimmed, &mut highlighter)
                     .map(|highlighted| (trimmed, highlighted))
             })
             .take_while(move |(line, _)| {
@@ -242,7 +242,7 @@ impl Terminal {
         code_lines: &[(String, String)],
         width: &usize,
         total_points: u32,
-    ) {
+    ) -> Result<()> {
         let pipe = "│".white().dim();
 
         let points = format!(
@@ -294,7 +294,7 @@ impl Terminal {
             "{top}\r\n{points}\r\n{mid}\r\n{dotted_code}{bottom}\r\n\r\n{PROMPT}\r\n\r\n{option_text}\r\n{quit_option_text}"
         );
 
-        execute!(self.stdout.lock(), Print(text)).unwrap();
+        execute!(self.stdout.lock(), Print(text)).map_err(Into::into)
     }
 
     pub fn get_highlighter(&self, extension: &str) -> HighlightLines {
@@ -313,7 +313,7 @@ impl Terminal {
         mut code_lines: Vec<(String, String)>,
         available_points: &Mutex<f32>,
         receiver: Receiver<()>,
-    ) {
+    ) -> Result<()> {
         if ARGS.shuffle {
             code_lines.shuffle(&mut thread_rng());
         };
@@ -321,6 +321,9 @@ impl Terminal {
         // This has to be made a variable as opposed to just checking if idx ==
         // 0 because the lines could be shuffled.
         let mut is_first_line = true;
+
+        // Consume receiver.
+        let receiver = receiver;
 
         for (idx, (raw, line)) in code_lines.iter().enumerate() {
             if raw == "\n" {
@@ -340,11 +343,11 @@ impl Terminal {
 
             // Move to the row index of the dotted code and replace it with the
             // real code.
-            queue!(stdout, SavePosition, MoveTo(9, idx as u16 + 5), Print(line)).unwrap();
+            queue!(stdout, SavePosition, MoveTo(9, idx as u16 + 5), Print(line))?;
 
             // `available_points` should not be decreased on the first line.
             if idx != 0 {
-                let mut available_points = available_points.lock().unwrap();
+                let mut available_points = available_points.lock().map_err(|_| "could not lock")?;
                 *available_points -= 10.0;
 
                 // https://stackoverflow.com/a/7947812/13721990
@@ -361,12 +364,13 @@ impl Terminal {
                         "{} ",
                         new_color.paint(available_points.to_string())
                     ))
-                )
-                .unwrap();
+                )?;
             }
 
-            execute!(stdout, RestorePosition).unwrap();
+            execute!(stdout, RestorePosition)?;
         }
+
+        Ok(())
     }
 
     /// Responds to input from the user (1 | 2 | 3 | 4).
@@ -378,7 +382,7 @@ impl Terminal {
         correct_language: &str,
         available_points: &Mutex<f32>,
         total_points: &mut u32,
-    ) -> anyhow::Result<ControlFlow<()>> {
+    ) -> Result<ControlFlow<()>> {
         // Locking the stdout will let any work that's being done in
         // [`Terminal::start_showing_code`] to finish before we continue.
         let mut stdout = self.stdout.lock();
@@ -386,10 +390,10 @@ impl Terminal {
         let correct_option_idx = options
             .iter()
             .position(|&option| option == correct_language)
-            .unwrap();
+            .ok_or("correct language not found")?;
 
         let was_correct = (correct_option_idx + 1) as u32 == num;
-        let available_points = available_points.lock().unwrap();
+        let available_points = available_points.lock().map_err(|_| "could not lock")?;
 
         let correct_option_name_text = if was_correct {
             format!("{correct_language} (+ {available_points})")
@@ -439,24 +443,31 @@ impl Terminal {
     }
 
     /// Utility function to wait for a relevant char to be pressed.
-    pub fn read_input_char() -> char {
+    pub fn read_input_char() -> Result<char> {
+        // Consume all ready-to-be-collected events to ensure that only future
+        // are collected.
+        while event::poll(Duration::from_millis(1))? {
+            event::read()?;
+        }
+
         loop {
-            if let Ok(Event::Key(KeyEvent {
+            if let Event::Key(KeyEvent {
                 code: KeyCode::Char(char @ ('1' | '2' | '3' | '4' | 'q' | 'c')),
                 modifiers,
                 ..
-            })) = event::read()
+            }) = event::read()?
             {
                 if char == 'c' && modifiers != KeyModifiers::CONTROL {
                     continue;
                 }
 
-                return char;
+                return Ok(char);
             }
         }
     }
 
     /// Utility function to format an option.
+    #[must_use]
     pub fn format_option(key: &str, name: &str) -> String {
         format!(
             "{padding}[{key}] {name}",
@@ -466,9 +477,11 @@ impl Terminal {
         )
     }
 
-    /// Get terminal width
-    pub fn width() -> usize {
-        terminal::size().map(|(width, _)| width as usize).unwrap()
+    /// Get terminal width.
+    pub fn width() -> Result<usize> {
+        terminal::size()
+            .map(|(width, _)| width as usize)
+            .map_err(Into::into)
     }
 }
 

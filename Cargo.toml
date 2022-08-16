@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.16"
+version = "1.0.17"
 rust-version = "1.63"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"
@@ -8,13 +8,13 @@ description = "CLI game to see how fast you can guess the language of a code blo
 repository = "https://github.com/Lioness100/guess-that-lang"
 license = "Apache-2.0"
 keywords = ["cli", "game", "cli-game", "fun"]
+categories = ["command-line-utilities", "games"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 ansi_colours = "1.1.1"
 ansi_term = "0.12.1"
-anyhow = "1.0.59"
 argh = "0.1.8"
 confy = "0.4.0"
 crossterm = "0.25.0"

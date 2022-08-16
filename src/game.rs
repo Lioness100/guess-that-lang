@@ -20,7 +20,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use crate::{
     github::{GistData, Github},
     terminal::Terminal,
-    Config, CONFIG,
+    Config, Result, CONFIG,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -99,7 +99,7 @@ impl Drop for Game {
 
 impl Game {
     /// Create new game.
-    pub fn new(client: Github) -> anyhow::Result<Self> {
+    pub fn new(client: Github) -> Result<Self> {
         let terminal = Terminal::new()?;
 
         Ok(Self {
@@ -113,34 +113,32 @@ impl Game {
     /// Get the language options for a round. This will choose 3 random unique
     /// languages, push them to a vec along with the correct language, and
     /// shuffle the vec.
-    pub fn get_options(correct_language: &str) -> Vec<&str> {
+    #[must_use]
+    pub fn get_options(correct_language: &str) -> Option<Vec<&str>> {
         let mut options = Vec::<&str>::with_capacity(4);
         options.push(correct_language);
 
         let mut thread_rng = thread_rng();
         while options.len() < 4 {
-            let random_language = LANGUAGES.choose(&mut thread_rng).unwrap();
+            let random_language = LANGUAGES.choose(&mut thread_rng)?;
             if !options.contains(random_language) {
                 options.push(random_language);
             }
         }
 
         options.shuffle(&mut thread_rng);
-        options
+        Some(options)
     }
 
     /// Start a new round, which is called in the main function with a for loop.
-    pub fn start_new_round(
-        &mut self,
-        preloader: Option<Receiver<()>>,
-    ) -> anyhow::Result<ControlFlow<()>> {
+    pub fn start_new_round(&mut self, preloader: Option<Receiver<()>>) -> Result<ControlFlow<()>> {
         if self.gist_data.is_empty() {
             self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
         }
 
-        let gist = self.gist_data.pop().unwrap();
+        let gist = self.gist_data.pop().ok_or("empty gist vec")?;
         let text = self.client.get_gist(&gist.url)?;
-        let width = Terminal::width();
+        let width = Terminal::width()?;
 
         let highlighter = self.terminal.get_highlighter(&gist.extension);
         let code = match self.terminal.parse_code(&text, highlighter, &width) {
@@ -149,14 +147,14 @@ impl Game {
             None => return self.start_new_round(preloader),
         };
 
-        let options = Self::get_options(&gist.language);
+        let options = Self::get_options(&gist.language).ok_or("failed to get options")?;
 
         if let Some(preloader) = preloader {
-            preloader.recv().unwrap();
+            let _ = preloader.recv();
         }
 
         self.terminal
-            .print_round_info(&options, &code, &width, self.points);
+            .print_round_info(&options, &code, &width, self.points)?;
 
         let available_points = Mutex::new(100.0);
 
@@ -167,47 +165,47 @@ impl Game {
         thread::scope(|s| {
             let display = s.spawn(|| {
                 self.terminal
-                    .start_showing_code(code, &available_points, receiver);
+                    .start_showing_code(code, &available_points, receiver)
             });
 
             let input = s.spawn(|| {
-                let input = Terminal::read_input_char();
+                let input = Terminal::read_input_char()?;
 
                 // Notifies [`Terminal::start_showing_code`] to not show the
                 // next line.
                 let sender = sender;
-                let _sent = sender.send(());
+                let _ = sender.send(());
 
                 if input == 'q' || input == 'c' {
                     Ok(ControlFlow::Break(()))
                 } else {
                     let result = self.terminal.process_input(
-                        input.to_digit(10).unwrap(),
+                        input.to_digit(10).ok_or("invalid input")?,
                         &options,
                         &gist.language,
                         &available_points,
                         &mut self.points,
-                    )?;
+                    );
 
                     // Let the user visually process the result. If they got it
                     // correct, the timer is set after a thread is spawned to
                     // preload the next round's gist.
-                    if result == ControlFlow::Break(()) {
+                    if let Ok(ControlFlow::Break(())) = result {
                         thread::sleep(Duration::from_millis(1500));
                     }
 
-                    Ok(result)
+                    result
                 }
             });
 
-            display.join().unwrap();
+            display.join().unwrap()?;
             input.join().unwrap()
         })
     }
 
-    // Wait 1.5 seconds for the user to visually process they got the right
-    // answer while the next round is preloading, then start the next round.
-    pub fn start_next_round(&mut self) -> anyhow::Result<ControlFlow<()>> {
+    /// Wait 1.5 seconds for the user to visually process they got the right
+    /// answer while the next round is preloading, then start the next round.
+    pub fn start_next_round(&mut self) -> Result<ControlFlow<()>> {
         let (sender, receiver) = mpsc::channel();
 
         thread::scope(|s| {
@@ -218,8 +216,8 @@ impl Game {
             // Clear the screen and move to the top right corner. This is not
             // a method of [`Terminal`] because it would take a lot of work to
             // let the borrow checker let me use `self` again.
-            execute!(stdout().lock(), Clear(ClearType::All), MoveTo(0, 0)).unwrap();
-            sender.send(()).unwrap();
+            let _clear = execute!(stdout().lock(), Clear(ClearType::All), MoveTo(0, 0));
+            let _ = sender.send(());
 
             handle.join().unwrap()
         })

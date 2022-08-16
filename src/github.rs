@@ -1,13 +1,12 @@
 use std::{collections::BTreeMap, path::Path};
 
-use anyhow::{bail, Context};
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use regex::RegexBuilder;
 use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
 use ureq::{Agent, AgentBuilder, Response};
 
-use crate::{game::LANGUAGES, Config, ARGS, CONFIG};
+use crate::{game::LANGUAGES, Config, Result, ARGS, CONFIG};
 
 pub const GITHUB_BASE_URL: &str = "https://api.github.com";
 
@@ -33,9 +32,9 @@ pub struct GistData {
 }
 
 impl GistData {
-    /// Create a new GistData struct from a [`Gist`]. This will return [`None`]
+    /// Create a new [`GistData`] struct from a [`Gist`]. This will return [`None`]
     /// if none of the gist files use one of the supported languages.
-    pub fn from(gist: Gist, syntaxes: &SyntaxSet) -> Option<GistData> {
+    pub fn from(gist: Gist, syntaxes: &SyntaxSet) -> Option<Self> {
         let file = gist.files.into_values().find(|file| {
             matches!(file.language.as_ref(), Some(language) if LANGUAGES.contains(&language.as_str()))
         })?;
@@ -46,7 +45,7 @@ impl GistData {
         Some(Self {
             url: file.raw_url.to_string(),
             extension: extension.to_string(),
-            language: file.language.unwrap(),
+            language: file.language?,
         })
     }
 }
@@ -70,18 +69,20 @@ impl Default for Github {
 }
 
 impl Github {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Result<Self> {
         let mut github = Self::default();
         github.token = github.apply_token()?;
 
         Ok(github)
     }
 
-    pub fn apply_token(&mut self) -> anyhow::Result<Option<String>> {
+    /// If a token is found from arguments or the config: validate it and return
+    /// it. If it wasn't found from the config, store it in the config.
+    pub fn apply_token(&mut self) -> Result<Option<String>> {
         if let Some(token) = &ARGS.token {
-            Github::test_token_structure(token)?;
+            Self::test_token_structure(token)?;
             self.validate_token(token)
-                .context("Invalid personal access token")?;
+                .expect("Invalid personal access token");
 
             confy::store(
                 "guess-that-lang",
@@ -92,7 +93,9 @@ impl Github {
             )?;
 
             return Ok(Some(token.to_string()));
-        } else if !CONFIG.token.is_empty() {
+        }
+
+        if !CONFIG.token.is_empty() {
             let result = self.validate_token(&CONFIG.token);
             if result.is_err() {
                 confy::store(
@@ -103,7 +106,7 @@ impl Github {
                     },
                 )?;
 
-                result.context("The token found in the config is invalid, so it has been removed. Please try again.")?;
+                panic!("The token found in the config is invalid, so it has been removed. Please try again.")
             } else {
                 return Ok(Some(CONFIG.token.clone()));
             }
@@ -115,23 +118,19 @@ impl Github {
     /// Test a Github personal access token via regex and return it if valid. The
     /// second step of validation is [`validate_token`] which requires querying the
     /// Github API asynchronously and thus can not be used with [`clap::value_parser`].
-    pub fn test_token_structure(token: &str) -> anyhow::Result<String> {
+    pub fn test_token_structure(token: &str) -> Result<String> {
         let re = RegexBuilder::new(r"[\da-f]{40}|ghp_\w{36,251}")
             // This is an expensive regex, so the size limit needs to be increased.
             .size_limit(1 << 25)
-            .build()
-            .unwrap();
+            .build()?;
 
-        if re.is_match(token) {
-            Ok(token.to_string())
-        } else {
-            bail!("Invalid token format")
-        }
+        assert!(re.is_match(token), "Invalid token format");
+        Ok(token.to_string())
     }
 
     /// Queries the Github ratelimit API using the provided token to make sure it's
     /// valid. The ratelimit data itself isn't used.
-    pub fn validate_token(&self, token: &str) -> anyhow::Result<Response> {
+    pub fn validate_token(&self, token: &str) -> Result<Response> {
         self.agent
             .get(&format!("{GITHUB_BASE_URL}/rate_limit"))
             .set("Authorization", &format!("Bearer {token}"))
@@ -141,7 +140,7 @@ impl Github {
 
     /// Get a vec of random valid gists on Github. This is used with the assumption
     /// that at least one valid gist will be found.
-    pub fn get_gists(&self, syntaxes: &SyntaxSet) -> anyhow::Result<Vec<GistData>> {
+    pub fn get_gists(&self, syntaxes: &SyntaxSet) -> Result<Vec<GistData>> {
         let mut request = ureq::get(&format!("{GITHUB_BASE_URL}/gists/public"))
             .query("page", &thread_rng().gen_range(0..=100).to_string());
 
@@ -162,7 +161,7 @@ impl Github {
     }
 
     /// Get single gist content.
-    pub fn get_gist(&self, url: &str) -> anyhow::Result<String> {
+    pub fn get_gist(&self, url: &str) -> Result<String> {
         let mut request = ureq::get(url);
 
         if let Some(token) = &self.token {
