@@ -29,8 +29,8 @@ pub struct Args {
     token: Option<String>,
 
     /// the number of ms to wait before revealing code
-    #[argh(short = 'w', option, default = "1500")]
-    wait: u64,
+    #[argh(short = 'w', option)]
+    wait: Option<u64>,
 
     /// whether or not to reveal lines in random order
     #[argh(short = 's', switch)]
@@ -47,8 +47,11 @@ pub struct Config {
     high_score: u32,
     token: String,
     theme: Option<ThemeStyle>,
+    delay: Option<u64>,
 }
 
+pub const DEFAULT_INITIAL_DELAY: u64 = 1500;
+pub const CODE_DELAY: u64 = 1500;
 lazy_static! {
     pub static ref ARGS: Args = argh::from_env();
     pub static ref CONFIG: Config = confy::load("guess-that-lang").unwrap();
