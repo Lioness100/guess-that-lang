@@ -176,7 +176,7 @@ impl Game {
         thread::scope(|s| {
             let display = s.spawn(|| {
                 self.terminal
-                    .start_showing_code(code, &available_points, receiver)
+                    .start_showing_code(&code, &available_points, receiver)
             });
 
             let input = s.spawn(|| {

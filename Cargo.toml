@@ -1,6 +1,6 @@
 [package]
 name = "guess-that-lang"
-version = "1.0.17"
+version = "1.0.18"
 rust-version = "1.63"
 authors = ["Lioness100 <jchickmm2@gmail.com>"]
 edition = "2021"

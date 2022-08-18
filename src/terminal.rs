@@ -102,8 +102,9 @@ impl Terminal {
 
             // This color represents comments. If the line includes a comment,
             // it should be excluded from the output so the user can look at
-            // actual code.
-            if color == Color::RGB(117, 113, 94) {
+            // actual code. The second color is for bash specifically because it
+            // for some reason has a different comment color.
+            if matches!(color, Color::RGB(117, 113, 94) | Color::RGB(124, 120, 101)) {
                 return None;
             };
 
@@ -310,10 +311,12 @@ impl Terminal {
     /// `available_points` every 1.5 seconds.
     pub fn start_showing_code(
         &self,
-        mut code_lines: Vec<(String, String)>,
+        code_lines: &[(String, String)],
         available_points: &Mutex<f32>,
         receiver: Receiver<()>,
     ) -> Result<()> {
+        let mut code_lines: Vec<_> = code_lines.iter().enumerate().collect();
+
         if ARGS.shuffle {
             code_lines.shuffle(&mut thread_rng());
         };
@@ -325,7 +328,7 @@ impl Terminal {
         // Consume receiver.
         let receiver = receiver;
 
-        for (idx, (raw, line)) in code_lines.iter().enumerate() {
+        for (idx, (raw, line)) in code_lines {
             if raw == "\n" {
                 continue;
             }

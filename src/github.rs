@@ -1,7 +1,8 @@
 use std::{collections::BTreeMap, path::Path};
 
+use lazy_static::lazy_static;
 use rand::{seq::SliceRandom, thread_rng, Rng};
-use regex::RegexBuilder;
+use regex::{Regex, RegexBuilder};
 use serde::Deserialize;
 use syntect::parsing::SyntaxSet;
 use ureq::{Agent, AgentBuilder, Response};
@@ -9,6 +10,14 @@ use ureq::{Agent, AgentBuilder, Response};
 use crate::{game::LANGUAGES, Config, Result, ARGS, CONFIG};
 
 pub const GITHUB_BASE_URL: &str = "https://api.github.com";
+
+lazy_static! {
+    static ref TOKEN_REGEX: Regex = RegexBuilder::new(r"[\da-f]{40}|ghp_\w{36,251}")
+        // This is an expensive regex, so the size limit needs to be increased.
+        .size_limit(1 << 25)
+        .build()
+        .unwrap();
+}
 
 /// The relevant fields from the gist schema returned by the Github API.
 #[derive(Deserialize)]
@@ -81,8 +90,10 @@ impl Github {
     pub fn apply_token(&mut self) -> Result<Option<String>> {
         if let Some(token) = &ARGS.token {
             Self::test_token_structure(token)?;
-            self.validate_token(token)
-                .expect("Invalid personal access token");
+
+            if self.validate_token(token).is_err() {
+                return Err("Invalid personal access token".into());
+            }
 
             confy::store(
                 "guess-that-lang",
@@ -106,26 +117,22 @@ impl Github {
                     },
                 )?;
 
-                panic!("The token found in the config is invalid, so it has been removed. Please try again.")
-            } else {
-                return Ok(Some(CONFIG.token.clone()));
+                return Err("The token found in the config is invalid, so it has been removed. Please try again.".into());
             }
+
+            return Ok(Some(CONFIG.token.clone()));
         }
 
         Ok(None)
     }
 
-    /// Test a Github personal access token via regex and return it if valid. The
-    /// second step of validation is [`validate_token`] which requires querying the
-    /// Github API asynchronously and thus can not be used with [`clap::value_parser`].
+    /// Test a Github personal access token via regex and return it if valid.
     pub fn test_token_structure(token: &str) -> Result<String> {
-        let re = RegexBuilder::new(r"[\da-f]{40}|ghp_\w{36,251}")
-            // This is an expensive regex, so the size limit needs to be increased.
-            .size_limit(1 << 25)
-            .build()?;
-
-        assert!(re.is_match(token), "Invalid token format");
-        Ok(token.to_string())
+        if TOKEN_REGEX.is_match(token) {
+            Ok(token.to_string())
+        } else {
+            Err("Invalid personal access token".into())
+        }
     }
 
     /// Queries the Github ratelimit API using the provided token to make sure it's
