@@ -20,7 +20,7 @@ use rand::{seq::SliceRandom, thread_rng};
 use crate::{
     github::{GistData, Github},
     terminal::Terminal,
-    Config, Result, CONFIG,
+    Result, ARGS, CONFIG,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -76,6 +76,10 @@ impl Drop for Game {
             self.points.to_string().green().bold()
         );
 
+        let mut new_config = CONFIG.clone();
+
+        let mut needs_writing: bool = false;
+
         if self.points > CONFIG.high_score {
             if CONFIG.high_score > 0 {
                 println!(
@@ -87,11 +91,18 @@ impl Drop for Game {
                 );
             }
 
-            let new_config = Config {
-                high_score: self.points,
-                ..CONFIG.clone()
-            };
+            new_config.high_score = self.points;
 
+            needs_writing = true;
+        }
+
+        if let Some(initial_delay) = ARGS.wait {
+            new_config.delay = Some(initial_delay);
+            needs_writing = true;
+        }
+
+        if needs_writing {
+            // TODO Maybe handle the case of a failed `store`
             let _config = confy::store("guess-that-lang", new_config);
         }
     }

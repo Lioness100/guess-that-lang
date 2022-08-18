@@ -44,9 +44,9 @@ impl TryFrom<Option<String>> for ThemeStyle {
     type Error = ();
 
     fn try_from(opt: Option<String>) -> result::Result<Self, Self::Error> {
-        match opt {
-            Some(string) if string == "dark" => Ok(Self::Dark),
-            Some(string) if string == "light" => Ok(Self::Light),
+        match opt.ok_or(())?.as_str() {
+            "dark" => Ok(Self::Dark),
+            "light" => Ok(Self::Light),
             _ => Err(()),
         }
     }
@@ -333,7 +333,12 @@ impl Terminal {
                 continue;
             }
 
-            let millis = if is_first_line { ARGS.wait } else { 1500 };
+            let millis = if is_first_line {
+                ARGS.wait
+                    .unwrap_or_else(|| CONFIG.delay.unwrap_or(crate::DEFAULT_INITIAL_DELAY))
+            } else {
+                crate::CODE_DELAY
+            };
             is_first_line = false;
 
             // The receiver will be notified when the user has selected an
