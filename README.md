@@ -9,8 +9,7 @@ the game, please consider giving a ⭐!_
 
 ![Game Demo](https://user-images.githubusercontent.com/65814829/183973036-c283d147-8061-40c8-a306-916801d6c9bc.gif)
 
-Code is retrieved from [random
-gists](https://docs.github.com/en/rest/gists/gists#list-public-gists) on GitHub
+Code is retrieved from either random repos or random gists on GitHub
 using any of the top 24* most popular languages from the [Stack Overflow 2022
 Developer
 Survey](https://survey.stackoverflow.co/2022/#most-popular-technologies-language).
@@ -73,6 +72,10 @@ scopes are required).
 ```sh
 # Tokens will be stored in a config file so you only need to input them once.
 guess-that-lang --token "XXX" # or -t
+
+# Get code from gists rather than repos.
+# Repos generally provide better code quality, but gists require less API calls.
+guess-that-lang --provider gists # or -p
 
 # Wait 5 seconds after showing the options before starting to reveal code. (Default: 1500)
 guess-that-lang --wait 5000 # or -w

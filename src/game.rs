@@ -18,9 +18,9 @@ use crossterm::{
 use rand::{seq::SliceRandom, thread_rng};
 
 use crate::{
-    github::{GistData, Github},
+    providers::{gists::GistProvider, repos::RepositoryProvider, GithubProvider},
     terminal::Terminal,
-    Config, Result, CONFIG,
+    Config, Result, ARGS, CONFIG,
 };
 
 /// The prompt to be shown before the options in [`Terminal::print_round_info`].
@@ -60,8 +60,7 @@ pub const LANGUAGES: [&str; 25] = [
 pub struct Game {
     pub points: u32,
     pub terminal: Terminal,
-    pub client: Github,
-    pub gist_data: Vec<GistData>,
+    pub provider: Box<dyn GithubProvider>,
 }
 
 /// Cleanup terminal after the Game is over (this will also account for
@@ -99,14 +98,22 @@ impl Drop for Game {
 
 impl Game {
     /// Create new game.
-    pub fn new(client: Github) -> Result<Self> {
-        let terminal = Terminal::new()?;
+    pub fn new() -> Result<Self> {
+        let provider: Box<dyn GithubProvider> = match ARGS
+            .provider
+            .as_ref()
+            .unwrap_or(&String::from("repos"))
+            .as_str()
+        {
+            "gists" => Box::new(GistProvider::new()?),
+            "repos" => Box::new(RepositoryProvider::new()?),
+            _ => return Err("Invalid github provider (repos/gists)".into()),
+        };
 
         Ok(Self {
             points: 0,
-            gist_data: client.get_gists(&terminal.syntaxes)?,
-            terminal,
-            client,
+            terminal: Terminal::new()?,
+            provider,
         })
     }
 
@@ -114,40 +121,35 @@ impl Game {
     /// languages, push them to a vec along with the correct language, and
     /// shuffle the vec.
     #[must_use]
-    pub fn get_options(correct_language: &str) -> Option<Vec<&str>> {
+    pub fn get_options(correct_language: &str) -> Vec<&str> {
         let mut options = Vec::<&str>::with_capacity(4);
         options.push(correct_language);
 
         let mut thread_rng = thread_rng();
         while options.len() < 4 {
-            let random_language = LANGUAGES.choose(&mut thread_rng)?;
+            let random_language = LANGUAGES.choose(&mut thread_rng).unwrap();
             if !options.contains(random_language) {
                 options.push(random_language);
             }
         }
 
         options.shuffle(&mut thread_rng);
-        Some(options)
+        options
     }
 
     /// Start a new round, which is called in the main function with a for loop.
     pub fn start_new_round(&mut self, preloader: Option<Receiver<()>>) -> Result<ControlFlow<()>> {
-        if self.gist_data.is_empty() {
-            self.gist_data = self.client.get_gists(&self.terminal.syntaxes)?;
-        }
-
-        let gist = self.gist_data.pop().ok_or("empty gist vec")?;
-        let text = self.client.get_gist(&gist.url)?;
+        let data = self.provider.get_code()?;
         let width = Terminal::width()?;
 
-        let highlighter = self.terminal.get_highlighter(&gist.extension);
-        let code = match self.terminal.parse_code(&text, highlighter, &width) {
+        let highlighter = self.terminal.get_highlighter(&data.language);
+        let code = match self.terminal.parse_code(&data.code, highlighter, &width) {
             Some(code) => code,
             // If there is no valid code, skip this round via recursion.
             None => return self.start_new_round(preloader),
         };
 
-        let options = Self::get_options(&gist.language).ok_or("failed to get options")?;
+        let options = Self::get_options(&data.language);
 
         if let Some(preloader) = preloader {
             let _ = preloader.recv();
@@ -157,7 +159,6 @@ impl Game {
             .print_round_info(&options, &code, &width, self.points)?;
 
         let available_points = Mutex::new(100.0);
-
         let (sender, receiver) = mpsc::channel();
 
         // [`Terminal::start_showing_code`] and [`Terminal::read_input_char`]
@@ -182,7 +183,7 @@ impl Game {
                     let result = self.terminal.process_input(
                         input.to_digit(10).ok_or("invalid input")?,
                         &options,
-                        &gist.language,
+                        &data.language,
                         &available_points,
                         &mut self.points,
                     );

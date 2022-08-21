@@ -14,10 +14,10 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
 pub mod game;
-pub mod github;
+pub mod providers;
 pub mod terminal;
 
-use crate::{game::Game, github::Github, terminal::ThemeStyle};
+use crate::{game::Game, terminal::ThemeStyle};
 
 pub type Result<T> = result::Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -27,6 +27,10 @@ pub struct Args {
     /// your personal access token
     #[argh(short = 't', option)]
     token: Option<String>,
+
+    /// where to get the code from (gists/repos)
+    #[argh(short = 'p', option)]
+    provider: Option<String>,
 
     /// the number of ms to wait before revealing code
     #[argh(short = 'w', option, default = "1500")]
@@ -55,9 +59,7 @@ lazy_static! {
 }
 
 pub fn main() -> Result<()> {
-    let client = Github::new()?;
-    let mut game = Game::new(client)?;
-
+    let mut game = Game::new()?;
     let mut result = game.start_new_round(None)?;
 
     while let ControlFlow::Continue(_) = result {

@@ -192,7 +192,7 @@ impl Terminal {
                 let trimmed = if line.len() + 9 > *width {
                     format!("{}...", &line[..*width - 12])
                 } else {
-                    line.to_string()
+                    line.to_owned()
                 };
 
                 self.highlight_line(&trimmed, &mut highlighter)
@@ -298,10 +298,10 @@ impl Terminal {
         execute!(self.stdout.lock(), Print(text)).map_err(Into::into)
     }
 
-    pub fn get_highlighter(&self, extension: &str) -> HighlightLines {
+    pub fn get_highlighter(&self, language: &str) -> HighlightLines {
         let syntax = self
             .syntaxes
-            .find_syntax_by_extension(extension)
+            .find_syntax_by_name(language)
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
 
         HighlightLines::new(syntax, &self.theme)
