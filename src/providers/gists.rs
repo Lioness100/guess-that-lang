@@ -1,4 +1,4 @@
-use std::{collections::HashMap, result};
+use std::{collections::BTreeMap, result};
 
 use rand::{seq::SliceRandom, thread_rng, Rng};
 use serde::Deserialize;
@@ -12,12 +12,12 @@ use crate::{
 
 #[derive(Deserialize)]
 pub struct Gist {
-    pub files: HashMap<String, GistFile>,
+    pub files: BTreeMap<String, GistFile>,
 }
 
 #[derive(Deserialize)]
 pub struct GistFile {
-    pub language: String,
+    pub language: Option<String>,
     pub raw_url: String,
 }
 
@@ -35,12 +35,16 @@ impl TryFrom<Gist> for GistData {
         let file = gist
             .files
             .into_values()
-            .find(|file| LANGUAGES.contains(&file.language.as_str()))
+            .find(|file| {
+                file.language
+                    .as_ref()
+                    .map_or(false, |language| LANGUAGES.contains(&language.as_str()))
+            })
             .ok_or(())?;
 
         Ok(Self {
             url: file.raw_url.to_string(),
-            language: file.language,
+            language: file.language.unwrap(),
         })
     }
 }

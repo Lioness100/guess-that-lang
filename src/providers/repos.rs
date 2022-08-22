@@ -42,7 +42,7 @@ impl RepositoryProvider<'_> {
     /// Get a vec of random valid gists on Github. This is used with the assumption
     /// that at least one valid gist will be found.
     pub fn get_repos(&self, language: &str) -> Result<Vec<String>> {
-        let mut gists: Vec<_> = self
+        let mut repos: Vec<_> = self
             .agent
             .get(&format!("{GITHUB_BASE_URL}/search/repositories"))
             .query("page", &thread_rng().gen_range(0..35).to_string())
@@ -55,9 +55,9 @@ impl RepositoryProvider<'_> {
             .map(|repo| repo.full_name)
             .collect();
 
-        gists.shuffle(&mut thread_rng());
+        repos.shuffle(&mut thread_rng());
 
-        Ok(gists)
+        Ok(repos)
     }
 
     pub fn get_file(&self, language: &str, name: &str) -> Result<RepositoryFile> {

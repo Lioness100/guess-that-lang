@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "guess-that-lang"
-version = "1.0.19"
+version = "1.0.20"
 dependencies = [
  "ansi_colours",
  "ansi_term",
