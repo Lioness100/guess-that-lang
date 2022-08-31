@@ -492,10 +492,9 @@ impl Terminal {
 fn macos_dark_mode_active() -> bool {
     let mut defaults_cmd = std::process::Command::new("defaults");
     defaults_cmd.args(&["read", "-globalDomain", "AppleInterfaceStyle"]);
-    match defaults_cmd.output() {
-        Ok(output) => output.stdout == b"Dark\n",
-        Err(_) => true,
-    }
+    defaults_cmd
+        .output()
+        .map_or(true, |output| output.stdout == b"Dark\n")
 }
 
 #[cfg(test)]
