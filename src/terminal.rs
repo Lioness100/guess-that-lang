@@ -104,7 +104,6 @@ impl Terminal {
             // it should be excluded from the output so the user can look at
             // actual code. The second color is for bash specifically because it
             // for some reason has a different comment color.
-            println!("{color:?}");
             if matches!(color, Color::RGB(117, 113, 94) | Color::RGB(124, 120, 101)) {
                 return None;
             };
@@ -304,8 +303,6 @@ impl Terminal {
             .syntaxes
             .find_syntax_by_name(language)
             .unwrap_or_else(|| self.syntaxes.find_syntax_plain_text());
-
-        println!("{}", syntax.name);
 
         HighlightLines::new(syntax, &self.theme)
     }
